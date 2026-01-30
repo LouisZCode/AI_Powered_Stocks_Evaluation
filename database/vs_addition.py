@@ -1,4 +1,4 @@
-# Test using:   python -m database.vs_addition
+# Test using in terminal:   python -m database.vs_addition
 
 from edgar import Company, set_identity
 import re
@@ -78,13 +78,12 @@ def add_clean_fillings_to_database(ticker : str):
     """
 
     company = Company(ticker)
-    filings = company.get_filings(form="10-Q")
+    filings = company.get_filings(form=["10-Q", "10-K"]).latest(8)                            #Change int number to get the last N filings per quarter. For project, 8 (2 years)
 
     if not filings:
         print(f"No SEC filings found for ticker '{ticker}'. It may not be a US-listed company.")
         return None
 
-    filings = filings.latest(2)   #Change int number to get the last N filings per quarter
     print(f"Found {len(filings)} filings for {ticker}. Processing...")
     print()
 
@@ -150,6 +149,15 @@ def add_clean_fillings_to_database(ticker : str):
         fy_end = filing.header.filers[0].company_information.fiscal_year_end
 
         quarter, year = _get_fiscal_quarter(por, fy_end)
+        cur.execute("""
+        SELECT COUNT(*) FROM chunks 
+        WHERE ticker = %s AND year = %s AND quarter = %s
+        """, (ticker, year, quarter))
+    
+        if cur.fetchone()[0] > 0:
+            print(f"⏭️ Skipping {quarter} {year} — already in DB")
+            continue
+
         parsed_date = datetime.strptime(por, '%Y-%m-%d').date()
 
         #From that data given by edgartools, we get this for the database:
@@ -161,7 +169,7 @@ def add_clean_fillings_to_database(ticker : str):
 
         embeddings = embed_chunks(filtered_chunks)
 
-        for chunk, embedding in tqdm(zip(filtered_chunks, embeddings), desc=f"Processing {quarter}", unit="filing"):
+        for chunk, embedding in tqdm(zip(filtered_chunks, embeddings), desc=f"Processing {quarter} of {year}", unit="filing"):
             cur.execute("""
                 INSERT INTO chunks (content, embedding, ticker, filing_date, year, quarter)
                 VALUES (%s, %s, %s, %s, %s, %s)
@@ -181,4 +189,4 @@ def add_clean_fillings_to_database(ticker : str):
     print()
 
 
-#add_clean_fillings_to_database("BMNR")
+add_clean_fillings_to_database("TSLA")
