@@ -14,5 +14,6 @@ dependencies = [
     "pgvector>=0.4.2",
     "psycopg2-binary>=2.9.11",
     "python-dotenv>=1.2.1",
+    "sentence-transformers>=5.2.2",
     "uvicorn>=0.40.0",
 ]
