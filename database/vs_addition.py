@@ -1,16 +1,16 @@
+# Test using:   python -m database.vs_addition
+
 from edgar import Company, set_identity
 import re
 
-from edgar.core import R
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from datetime import datetime
 
-set_identity("Juan Perez juan.perezzgz@hotmail.com")
+from .embeddings import embed_chunks
+from .connection import get_connection
 
-ticker = input("Write the ticker you want to research:\n")
-company = Company(ticker)
-filings = company.get_filings(form="10-Q").latest()
+from tqdm import tqdm
 
 BOILERPLATE_BLOCKLIST = [
     "Indicate by check mark",
@@ -52,65 +52,133 @@ BOILERPLATE_BLOCKLIST = [
     "104*",
 ]
 
-markdown = filings.markdown()
-markdown = re.sub(r'<[^>]+>', '', markdown)
-markdown = re.sub(r'\n.*\| Q\d 20\d{2} Form 10-[QK] \| \d+', '', markdown)
-markdown.strip()
+set_identity("Juan Perez juan.perezzgz@hotmail.com")
 
-#See one of the fillings after regex:
-#print(markdown)
 
-splitter= RecursiveCharacterTextSplitter(
-    chunk_size=1500,
-    chunk_overlap=200,
-    separators=["\n## ", "\n### ", "\n#### ", "\n\n", "\n", " "  ]
-)
+def _get_fiscal_quarter(period_of_report: str, fiscal_year_end: str):
+    """
+    helper function to give the correct parsed quarter and year to metadata
+    """
+    por = datetime.strptime(period_of_report, '%Y-%m-%d')
+    fy_end_month = int(fiscal_year_end[:2])
+    fy_start_month = (fy_end_month % 12) + 1
 
-all_chunks = splitter.split_text(markdown)
-print(f"All chunkd quantity: {len(all_chunks)}")
-#this gives back a list, we can see elements of that list:
-#for i , chunk in enumerate(all_chunks[:5]):
- #   print(f"\n--- Chunk {i+1} ---")
-  #  print(f"Content: {chunk}")
+    months_into_fy = (por.month - fy_start_month) % 12
+    fiscal_quarter = (months_into_fy // 3) + 1
 
-filtered_chunks = [chunk for chunk in all_chunks if len(chunk) >= 100 and not any(phrase in chunk for phrase in BOILERPLATE_BLOCKLIST)]
+    fiscal_year = por.year + 1 if por.month > fy_end_month else por.year
 
-"""
-print(f"Filtered chunkds quantity: {len(filtered_chunks)}")
-print()
+    return f'Q{fiscal_quarter}', fiscal_year
 
-print("FIRST 5 CHUNKS")
-for i , chunk in enumerate(filtered_chunks[:5]):
-    print(f"\n--- Chunk {i+1} ---")
-    print(f"Content: {chunk}")
 
-print("LAST 5 CHUNKS")
-for i , chunk in enumerate(filtered_chunks[-5:]):
-    print(f"\n--- Chunk {i+1} ---")
-    print(f"Content: {chunk}")
-"""
+def add_clean_fillings_to_database(ticker : str):
+    """
+    This function 1.- Gets the fillings form the SEC directly, cleans and chunks them, adds metadata and 
+    adds to the database both semantically + vectorized
+    """
 
-#now we can save these filtered chunks in the database:
-#edgar tools has a .period_of_report that we can use
+    company = Company(ticker)
+    filings = company.get_filings(form="10-Q")
 
-def get_quarter(month) -> str:
-    """Convert month to quarter"""
-    if month <= 3:
-        return "Q1"
-    elif month <= 6:
-        return "Q2"
-    elif month <= 9:
-        return "Q3"
-    else:
-        return "Q4"
+    if not filings:
+        print(f"No SEC filings found for ticker '{ticker}'. It may not be a US-listed company.")
+        return None
 
-por = filings.period_of_report 
-parsed = datetime.strptime(por, '%Y-%m-%d')
+    filings = filings.latest(2)   #Change int number to get the last N filings per quarter
+    print(f"Found {len(filings)} filings for {ticker}. Processing...")
+    print()
 
-year = parsed.year  
-month = parsed.month 
+    conn = get_connection()
+    cur = conn.cursor()
 
-period = filings.period_of_report
-data={"ticker" : ticker, "filling_date" : period, "year" : "period.year", "quaerter" : get_quarter(month)}
+    #We also check first that the ticker was not already searched in the database.
+    cur.execute("SELECT COUNT(*) FROM chunks WHERE ticker = %s", (ticker,))
+    count = cur.fetchone()[0]
 
-print(data)
+    if count > 0:
+        print(f"✅ {ticker} already in database ({count} chunks). Skipping SEC fetch.")
+        print()
+        cur.close()
+        conn.close()
+        return {"status": "exists", "chunks": count}
+
+    for filing in tqdm(filings, desc=f"Processing {ticker} Reports", unit="filing"):
+    
+        markdown = filing.markdown()
+        markdown = re.sub(r'<[^>]+>', '', markdown)
+        markdown = re.sub(r'\n.*\| Q\d 20\d{2} Form 10-[QK] \| \d+', '', markdown)
+        markdown.strip()
+
+        #See one of the fillings after regex:
+        #print(markdown)
+
+        splitter= RecursiveCharacterTextSplitter(
+            chunk_size=1500,
+            chunk_overlap=200,
+            separators=["\n## ", "\n### ", "\n#### ", "\n\n", "\n", " "  ]
+        )
+
+        all_chunks = splitter.split_text(markdown)
+        #print(f"All chunkd quantity: {len(all_chunks)}")
+
+        #this gives back a list, we can see elements of that list:
+        #for i , chunk in enumerate(all_chunks[:5]):
+        #   print(f"\n--- Chunk {i+1} ---")
+        #  print(f"Content: {chunk}")
+
+        filtered_chunks = [chunk for chunk in all_chunks if len(chunk) >= 100 and not any(phrase in chunk for phrase in BOILERPLATE_BLOCKLIST)]
+        #print(f"Filtered chunkds quantity: {len(filtered_chunks)}")
+        print()
+
+        """
+        print("FIRST 5 CHUNKS")
+        for i , chunk in enumerate(filtered_chunks[:5]):
+            print(f"\n--- Chunk {i+1} ---")
+            print(f"Content: {chunk}")
+
+        print("LAST 5 CHUNKS")
+        for i , chunk in enumerate(filtered_chunks[-5:]):
+            print(f"\n--- Chunk {i+1} ---")
+            print(f"Content: {chunk}")
+        """
+
+        #now we can save these filtered chunks in the database:
+        #edgar tools has a .period_of_report that we can use
+
+
+        por = filing.period_of_report
+        fy_end = filing.header.filers[0].company_information.fiscal_year_end
+
+        quarter, year = _get_fiscal_quarter(por, fy_end)
+        parsed_date = datetime.strptime(por, '%Y-%m-%d').date()
+
+        #From that data given by edgartools, we get this for the database:
+        metadata={"ticker" : ticker, "filing_date" : parsed_date, "year" : year, "quarter" : quarter}
+
+        #print("Metadata added to each chunk:")
+        #print(metadata)
+        #print()
+
+        embeddings = embed_chunks(filtered_chunks)
+
+        for chunk, embedding in tqdm(zip(filtered_chunks, embeddings), desc=f"Processing {quarter}", unit="filing"):
+            cur.execute("""
+                INSERT INTO chunks (content, embedding, ticker, filing_date, year, quarter)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """, (
+                chunk,
+                embedding,
+                metadata["ticker"],
+                metadata["filing_date"],
+                metadata["year"],
+                metadata["quarter"]
+            ))
+
+    conn.commit()
+    cur.close()
+    conn.close()
+    print("connection closed")
+    print()
+
+
+#add_clean_fillings_to_database("BMNR")
