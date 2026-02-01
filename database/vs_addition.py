@@ -78,7 +78,7 @@ def add_clean_fillings_to_database(ticker : str):
     """
 
     company = Company(ticker)
-    filings = company.get_filings(form=["10-Q", "10-K"]).latest(8)                            #Change int number to get the last N filings per quarter. For project, 8 (2 years)
+    filings = company.get_filings(form=["10-Q", "10-K"]).latest(10)                            #Change int number to get the last N filings per quarter. For project, 8 (2 years)
 
     if not filings:
         print(f"No SEC filings found for ticker '{ticker}'. It may not be a US-listed company.")
