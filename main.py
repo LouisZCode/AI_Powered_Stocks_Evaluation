@@ -11,7 +11,6 @@ app = FastAPI()
 def health():
     return {"health" : "OK"}
 
-
 class QueryBody(BaseModel):
     ticker : str
 
