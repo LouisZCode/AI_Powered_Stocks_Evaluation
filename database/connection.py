@@ -1,15 +1,11 @@
-import os
-from dotenv import load_dotenv
+from config import DB_URL
 
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
-load_dotenv()
-
-db = os.getenv("DATABASE_URL")
 
 def get_connection():
-    conn = psycopg2.connect(db)
+    conn = psycopg2.connect(DB_URL)
     print("connection stablished")
     return conn
 

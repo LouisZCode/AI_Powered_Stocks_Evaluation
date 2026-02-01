@@ -16,5 +16,7 @@ class QueryBody(BaseModel):
 
 @app.post("/financials/{ticker_symbol}")
 async def evaluate_financials(ticker_symbol : str):
+
+
     response = await grok_agent.ainvoke({"messages" : {"role" : "user" , "content" : ticker_symbol}})
     return {"financial_evaluation" : response["structured_response"]}
