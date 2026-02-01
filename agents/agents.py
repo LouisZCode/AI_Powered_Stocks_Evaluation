@@ -52,7 +52,7 @@ grok_agent = create_agent(
     )
 
 # to test  python -m agents.agents
-
+"""
 message = input("Write your ticker here:\n")
 
 response = grok_agent.invoke(
@@ -61,3 +61,4 @@ response = grok_agent.invoke(
 
 for i , msg in enumerate(response["messages"]):
     msg.pretty_print()
+"""
