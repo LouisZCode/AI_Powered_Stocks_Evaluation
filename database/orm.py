@@ -9,14 +9,15 @@ from sqlalchemy.orm import sessionmaker
 from config import DB_URL
 
 
-
-def create_engine():
+def alchemy_engine():
     engine = create_engine(DB_URL)
-
+    Session = sessionmaker(bind=engine)
+    db = Session()
+    return db
 
 Base = declarative_base()
 
-class Chunk(Base):
+class DocumentChunk(Base):
     __tablename__ = 'chunks'
 
     id = Column(Integer, primary_key=True)
@@ -24,7 +25,7 @@ class Chunk(Base):
     content = Column(Text, nullable=False)
     embedding = Column(Vector(384))
     ticker = Column(String(10), nullable=False)
-    filling_date = Column(DateTime)
+    filing_date = Column(DateTime)
     year = Column(Integer)
     quarter = Column(String(2))
 
