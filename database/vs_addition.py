@@ -187,6 +187,3 @@ def add_clean_fillings_to_database(ticker : str):
     conn.close()
     print("connection closed")
     print()
-
-
-add_clean_fillings_to_database("TSLA")

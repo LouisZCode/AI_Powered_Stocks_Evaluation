@@ -3,7 +3,7 @@
 Thumbs.db
 
 #Data area:
-data/
+logd/conversations
 
 # Internal
 todo_list.md
