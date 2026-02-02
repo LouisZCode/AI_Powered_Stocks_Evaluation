@@ -10,8 +10,13 @@ def retrieval_tool(query : str) -> str:
     Query with the ticker symbol to get financial data about earnings, revenue, growth, etc.
     """
 
+    first_word = query.split()[0]                                                                                                                       
+    if first_word.isupper():                                                                                                                            
+        ticker = first_word 
+
     if len(query.split()) <= 5:
         query = f"{query} financial strength and earnings revenue growth"
+    
 
     query_embedding = embed_query(query)
 
@@ -21,9 +26,10 @@ def retrieval_tool(query : str) -> str:
     cur.execute("""
         SELECT content, ticker, year, quarter
         FROM chunks
+        WHERE ticker = %s
         ORDER BY embedding <-> %s::vector
         LIMIT %s
-    """, (query_embedding, 5)
+    """, (ticker, query_embedding, 5)
     )
     
     results = cur.fetchall()
