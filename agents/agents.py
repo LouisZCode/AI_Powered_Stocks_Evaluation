@@ -22,6 +22,14 @@ prompts = load_prompts()
 financial_strenght_system_prompt = prompts["QUARTERLY_RESULTS_EXPERT"]
 
 
+AVAILABLE_MODELS = {
+    "grok": "xai:grok-4-fast-non-reasoning",                                                                                                                                                                                                     
+    "openai": "openai:gpt-5-mini",                                                                                                                                                                                                                   
+    "claude": "anthropic:claude-haiku-4-5",                                                                                                                                                                                              
+    "gemini": "google_genai:gemini-2.5-flash",
+    "mistral": "mistral-large-2512"                                                                                                                                                                                                         
+}
+
 class FinancialInformation(TypedDict):
     stock: str
     revenue: str
@@ -43,9 +51,12 @@ class FinancialInformation(TypedDict):
     financial_strenght: str
     overall_summary: str
 
-
-grok_agent = create_agent(
-    model="xai:grok-4-fast-non-reasoning",
+def create_financial_agent(model_key : str):
+    if model_key not in AVAILABLE_MODELS:
+        raise ValueError(f"Unknown Model: {model_key}")
+    
+    return create_agent(
+    model=AVAILABLE_MODELS[model_key],
     system_prompt=financial_strenght_system_prompt,
     response_format=FinancialInformation,
     tools=[retrieval_tool]

@@ -6,9 +6,12 @@ from psycopg2.extras import RealDictCursor
 
 def get_connection():
     conn = psycopg2.connect(DB_URL)
-    print("connection stablished")
+    #print("connection stablished")
     return conn
 
+
+
+"""
 # a simple function to test the connection is working as desired
 def test_connection():
     try:
@@ -26,3 +29,4 @@ def test_connection():
         return False
 
 #test_connection()
+"""
