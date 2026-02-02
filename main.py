@@ -1,14 +1,16 @@
 # test by:   uvicorn main:app --reload
 
 from database.orm import DocumentChunk
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 
 from pydantic import BaseModel
 from agents import grok_agent
 
-from database import alchemy_engine, add_clean_fillings_to_database
+from database import get_db, add_clean_fillings_to_database
 
 import asyncio
+
+from sqlalchemy.orm import Session 
 
 app = FastAPI()
 
@@ -20,9 +22,7 @@ class QueryBody(BaseModel):
     ticker : str
 
 @app.post("/financials/{ticker_symbol}")
-async def evaluate_financials(ticker_symbol : str):
-
-    db = alchemy_engine()
+async def evaluate_financials(ticker_symbol : str, db : Session = Depends(get_db)):
 
     ticker = db.query(DocumentChunk).filter_by(ticker=ticker_symbol).all()
     print(f"Found in database: {ticker}")
@@ -33,5 +33,4 @@ async def evaluate_financials(ticker_symbol : str):
     
 
     response = await grok_agent.ainvoke({"messages" : {"role" : "user" , "content" : ticker_symbol}})
-    db.close()
     return {"financial_evaluation" : response["structured_response"]}

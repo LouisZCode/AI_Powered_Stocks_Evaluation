@@ -8,12 +8,15 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker 
 from config import DB_URL
 
+engine = create_engine(DB_URL)
+SessionLocal = sessionmaker(bind=engine)
 
-def alchemy_engine():
-    engine = create_engine(DB_URL)
-    Session = sessionmaker(bind=engine)
-    db = Session()
-    return db
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 Base = declarative_base()
 
