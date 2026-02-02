@@ -6,7 +6,9 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from agents import grok_agent
 
-from database import alchemy_engine
+from database import alchemy_engine, add_clean_fillings_to_database
+
+import asyncio
 
 app = FastAPI()
 
@@ -26,9 +28,8 @@ async def evaluate_financials(ticker_symbol : str):
     print(f"Found in database: {ticker}")
 
     if not ticker:
-        db.close()
         print("Not ticker found in DB")
-        return("No ticker found in db")
+        await asyncio.to_thread(add_clean_fillings_to_database, ticker_symbol) 
     
 
     response = await grok_agent.ainvoke({"messages" : {"role" : "user" , "content" : ticker_symbol}})
