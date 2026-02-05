@@ -29,7 +29,7 @@ def retrieval_tool(query : str) -> str:
         WHERE ticker = %s
         ORDER BY embedding <-> %s::vector
         LIMIT %s
-    """, (ticker, query_embedding, 5)
+    """, (ticker, query_embedding, 8)
     )
     
     results = cur.fetchall()

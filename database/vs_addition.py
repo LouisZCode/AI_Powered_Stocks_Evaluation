@@ -112,8 +112,8 @@ def add_clean_fillings_to_database(ticker : str):
         #print(markdown)
 
         splitter= RecursiveCharacterTextSplitter(
-            chunk_size=1500,
-            chunk_overlap=200,
+            chunk_size=2500,
+            chunk_overlap=300,
             separators=["\n## ", "\n### ", "\n#### ", "\n\n", "\n", " "  ]
         )
 
