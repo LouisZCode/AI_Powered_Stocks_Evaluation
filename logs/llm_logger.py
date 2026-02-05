@@ -2,7 +2,7 @@
 Logger for capturing full LLM conversations including tool calls and responses.
 
 You can find:
-start_new_log, log_llm_conversation, log_debate_check, log_llm_timing
+start_new_log, log_llm_conversation, log_debate_check, log_llm_timing, log_cached_result
 """
 
 import os
@@ -54,6 +54,39 @@ def log_llm_timing(elapsed_time: float, log_file: str = None):
 
     with open(filepath, "a", encoding="utf-8") as f:
         f.write(f"LLM Response Time: {elapsed_time:.2f}s (parallel)\n\n")
+
+
+def log_cached_result(llm_name: str, analysis: dict = None, log_file: str = None):
+    """
+    Logs when a result is retrieved from cache instead of calling the LLM.
+
+    Args:
+        llm_name: Name of the LLM (e.g., "grok", "claude")
+        analysis: The cached analysis dict (optional)
+        log_file: Optional specific log file path. Uses current session log if not provided.
+    """
+    filepath = log_file or _current_log_file
+
+    if not filepath:
+        print(f"Warning: No log file set. Call start_new_log() first.")
+        return
+
+    with open(filepath, "a", encoding="utf-8") as f:
+        f.write(f"\n{'-'*60}\n")
+        f.write(f"  {llm_name.upper()} [CACHED]\n")
+        f.write(f"{'-'*60}\n")
+        f.write(f"Result retrieved from cache (no LLM call made)\n\n")
+
+        if analysis:
+            f.write(f"Cached Analysis:\n")
+            for key, value in analysis.items():
+                if key.endswith('_reason') or key == 'overall_summary':
+                    # Truncate long reasons
+                    value_str = str(value)[:200] + "..." if len(str(value)) > 200 else value
+                    f.write(f"  {key}: {value_str}\n")
+                else:
+                    f.write(f"  {key}: {value}\n")
+            f.write("\n")
 
 
 def log_llm_conversation(llm_name: str, response: dict, log_file: str = None):
