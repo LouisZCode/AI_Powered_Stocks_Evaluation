@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Kinetic Ledger - Chat Interface V3</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            background: #050a12;
+        }
+
+        /* Particle Canvas - Data Stream */
+        #particle-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            background: linear-gradient(100deg, #050a12 0%, #0a1628 40%, #0d1a2d 100%);
+            transition: filter 0.6s ease;
+        }
+
+        /* Thinking state - warm shift */
+        body.thinking #particle-canvas {
+            filter: hue-rotate(35deg) saturate(1.4) brightness(1.1);
+        }
+
+        .content-layer {
+            position: relative;
+            z-index: 10;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .mono { font-family: 'JetBrains Mono', monospace; }
+
+        /* Subtle horizontal flow lines */
+        .flow-lines {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            pointer-events: none;
+            opacity: 0.02;
+            background: repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 100px,
+                rgba(125, 211, 252, 0.4) 100px,
+                rgba(125, 211, 252, 0.4) 101px
+            );
+        }
+
+        /* Glass Monolith - Main Chat Container */
+        .glass-monolith {
+            background: rgba(8, 12, 20, 0.5);
+            backdrop-filter: blur(24px) saturate(180%);
+            -webkit-backdrop-filter: blur(24px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            box-shadow:
+                0 0 0 1px rgba(255, 255, 255, 0.02),
+                0 25px 60px -12px rgba(0, 0, 0, 0.6),
+                inset 0 1px 0 0 rgba(255, 255, 255, 0.04);
+            transition: box-shadow 0.6s ease, border-color 0.6s ease;
+        }
+
+        /* Thinking state - warm glow */
+        body.thinking .glass-monolith {
+            border-color: rgba(251, 191, 36, 0.2);
+            box-shadow:
+                0 0 0 1px rgba(251, 191, 36, 0.1),
+                0 25px 60px -12px rgba(0, 0, 0, 0.6),
+                0 0 80px rgba(251, 191, 36, 0.08),
+                inset 0 0 40px rgba(251, 191, 36, 0.03);
+        }
+
+        /* Header */
+        .glass-header {
+            background: rgba(8, 12, 20, 0.4);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        }
+
+        /* Chat Messages Container */
+        .chat-container {
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(125, 211, 252, 0.2) transparent;
+        }
+
+        .chat-container::-webkit-scrollbar { width: 4px; }
+        .chat-container::-webkit-scrollbar-track { background: transparent; }
+        .chat-container::-webkit-scrollbar-thumb {
+            background: rgba(125, 211, 252, 0.2);
+            border-radius: 2px;
+        }
+
+        /* User Message - Right aligned, subtle glass */
+        .message-user {
+            background: rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        /* AI Message - No bubble, text floats */
+        .message-ai {
+            /* Clean, floating text on glass */
+        }
+
+        /* Ticker Pill */
+        .ticker-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: rgba(16, 185, 129, 0.15);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            padding: 3px 12px;
+            border-radius: 20px;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+            font-size: 0.8em;
+            color: #10b981;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .ticker-pill:hover {
+            background: rgba(16, 185, 129, 0.25);
+            transform: translateY(-1px);
+        }
+
+        /* Ticker Hover Card */
+        .ticker-card {
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%) translateY(-8px);
+            background: #0a0f18;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 16px;
+            min-width: 200px;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.2s ease;
+            z-index: 100;
+            box-shadow: 0 15px 50px rgba(0, 0, 0, 0.6);
+        }
+
+        .ticker-pill:hover .ticker-card {
+            opacity: 1;
+            visibility: visible;
+            transform: translateX(-50%) translateY(-12px);
+        }
+
+        /* Input Area */
+        .input-glass {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .input-glass:focus-within {
+            border-color: rgba(125, 211, 252, 0.4);
+            box-shadow:
+                0 0 0 3px rgba(125, 211, 252, 0.1),
+                0 0 30px rgba(125, 211, 252, 0.1);
+        }
+
+        body.thinking .input-glass {
+            border-color: rgba(251, 191, 36, 0.3);
+            box-shadow: 0 0 30px rgba(251, 191, 36, 0.08);
+        }
+
+        /* Terminal Input - Monospaced for command center feel */
+        .input-field {
+            background: transparent;
+            border: none;
+            outline: none;
+            color: white;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            letter-spacing: -0.5px;
+        }
+
+        .input-field::placeholder {
+            color: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Send/Stop Button */
+        .btn-send {
+            background: linear-gradient(135deg, rgba(14, 165, 233, 0.9) 0%, rgba(6, 182, 212, 0.9) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            transition: all 0.3s ease;
+        }
+
+        .btn-send:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 25px rgba(14, 165, 233, 0.35);
+        }
+
+        .btn-stop {
+            background: linear-gradient(135deg, rgba(251, 191, 36, 0.9) 0%, rgba(217, 119, 6, 0.9) 100%);
+            animation: pulse-stop 1.2s ease-in-out infinite;
+        }
+
+        @keyframes pulse-stop {
+            0%, 100% { transform: scale(1); box-shadow: 0 0 20px rgba(251, 191, 36, 0.2); }
+            50% { transform: scale(1.05); box-shadow: 0 0 30px rgba(251, 191, 36, 0.4); }
+        }
+
+        /* Typing Indicator */
+        .typing-indicator {
+            display: flex;
+            gap: 5px;
+            padding: 8px 0;
+        }
+
+        .typing-dot {
+            width: 7px;
+            height: 7px;
+            background: rgba(251, 191, 36, 0.7);
+            border-radius: 50%;
+            animation: typing-bounce 1.4s ease-in-out infinite;
+        }
+
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes typing-bounce {
+            0%, 80%, 100% { transform: translateY(0); opacity: 0.5; }
+            40% { transform: translateY(-5px); opacity: 1; }
+        }
+
+        /* Recommendation Badges */
+        .badge-buy {
+            background: rgba(16, 185, 129, 0.15);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            color: #10b981;
+        }
+
+        .badge-hold {
+            background: rgba(251, 191, 36, 0.15);
+            border: 1px solid rgba(251, 191, 36, 0.3);
+            color: #fbbf24;
+        }
+
+        .badge-sell {
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #ef4444;
+        }
+
+        /* Consensus Bar */
+        .consensus-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.15);
+        }
+        .consensus-dot.buy { background: #10b981; }
+        .consensus-dot.hold { background: #fbbf24; }
+        .consensus-dot.sell { background: #ef4444; }
+
+        /* Analysis Card */
+        .analysis-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        /* Pulse animation for status indicator */
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .animate-pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+    </style>
+</head>
+<body>
+    <!-- Particle Canvas -->
+    <canvas id="particle-canvas"></canvas>
+
+    <!-- Flow Lines -->
+    <div class="flow-lines"></div>
+
+    <!-- Main Content -->
+    <div class="content-layer">
+        <!-- System Status Header -->
+        <header class="glass-header px-6 py-3 flex items-center justify-between z-20 relative">
+            <div class="flex items-center gap-4">
+                <div class="flex items-center gap-2">
+                    <div class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></div>
+                    <span class="text-white/80 text-xs font-bold tracking-widest mono">KINETIC<span class="text-cyan-400">_OS</span></span>
+                </div>
+                <span class="text-white/10 text-xs">|</span>
+                <span class="text-white/30 text-[10px] mono uppercase">Session: #8X-92</span>
+            </div>
+
+            <div class="flex items-center gap-6">
+                <div class="hidden md:flex items-center gap-2">
+                    <span class="text-[10px] text-white/20 mono">LATENCY</span>
+                    <span class="text-[10px] text-emerald-400 mono">14ms</span>
+                </div>
+
+                <div class="flex items-center gap-3">
+                    <span class="text-[10px] text-white/25 mono">CONSENSUS</span>
+                    <div class="flex gap-1">
+                        <div class="consensus-dot buy"></div>
+                        <div class="consensus-dot buy"></div>
+                        <div class="consensus-dot hold"></div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Chat Area -->
+        <main class="flex-1 flex justify-center px-4 py-6 overflow-hidden">
+            <!-- Glass Monolith -->
+            <div class="glass-monolith w-full max-w-4xl rounded-2xl flex flex-col overflow-hidden">
+                <!-- Chat Messages -->
+                <div class="chat-container flex-1 p-6 space-y-6">
+                    <!-- User Message -->
+                    <div class="flex justify-end">
+                        <div class="message-user rounded-2xl rounded-br-md px-5 py-3 max-w-lg">
+                            <p class="text-white/90 text-[15px]">Research NVDA for me</p>
+                        </div>
+                    </div>
+
+                    <!-- AI Response -->
+                    <div class="flex justify-start">
+                        <div class="message-ai max-w-2xl space-y-4">
+                            <p class="text-cyan-50/80 leading-relaxed text-[15px]">
+                                I've analyzed <span class="ticker-pill">
+                                    $NVDA
+                                    <div class="ticker-card">
+                                        <div class="flex items-center justify-between mb-2">
+                                            <span class="text-white font-semibold">NVDA</span>
+                                            <span class="text-xs text-white/40">NVIDIA Corp</span>
+                                        </div>
+                                        <div class="text-2xl font-bold text-white mono mb-2">$142.50</div>
+                                        <!-- SVG Sparkline - Smooth area chart -->
+                                        <div class="mb-3">
+                                            <svg width="100%" height="40" viewBox="0 0 120 40" fill="none" stroke="currentColor" class="text-emerald-400">
+                                                <defs>
+                                                    <linearGradient id="sparkGradient" x1="0" y1="0" x2="0" y2="1">
+                                                        <stop offset="0%" stop-color="#34d399" stop-opacity="0.3"/>
+                                                        <stop offset="100%" stop-color="#34d399" stop-opacity="0"/>
+                                                    </linearGradient>
+                                                </defs>
+                                                <path d="M0 35 L15 30 L30 32 L45 20 L60 25 L75 10 L90 15 L105 5 L120 12 V 40 H 0 Z" fill="url(#sparkGradient)" stroke="none" />
+                                                <path d="M0 35 L15 30 L30 32 L45 20 L60 25 L75 10 L90 15 L105 5 L120 12" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                                            </svg>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-green-400 text-sm mono">+2.34%</span>
+                                            <span class="text-white/30 text-xs">today</span>
+                                        </div>
+                                    </div>
+                                </span><span class="text-cyan-50/80"> across 8 quarters of SEC 10-Q filings. Here's the counsel's assessment:</span>
+                            </p>
+
+                            <!-- Analysis Card -->
+                            <div class="analysis-card rounded-xl p-5">
+                                <div class="flex items-center justify-between mb-4">
+                                    <h3 class="text-white/90 font-semibold text-sm">Financial Analysis</h3>
+                                    <span class="px-3 py-1 rounded-full text-xs font-bold mono badge-buy">BUY</span>
+                                </div>
+
+                                <div class="grid grid-cols-2 gap-4 mb-4">
+                                    <div>
+                                        <div class="text-[10px] text-white/30 mono mb-1">REVENUE GROWTH</div>
+                                        <div class="text-lg font-bold text-green-400 mono">+122%</div>
+                                    </div>
+                                    <div>
+                                        <div class="text-[10px] text-white/30 mono mb-1">P/E RATIO</div>
+                                        <div class="text-lg font-bold text-amber-400 mono">43.18</div>
+                                    </div>
+                                    <div>
+                                        <div class="text-[10px] text-white/30 mono mb-1">52W HIGH</div>
+                                        <div class="text-lg font-bold text-white/80 mono">$152.89</div>
+                                    </div>
+                                    <div>
+                                        <div class="text-[10px] text-white/30 mono mb-1">52W LOW</div>
+                                        <div class="text-lg font-bold text-white/80 mono">$76.32</div>
+                                    </div>
+                                </div>
+
+                                <div class="flex items-center gap-2 text-[11px] text-white/40 border-t border-white/5 pt-3">
+                                    <span class="mono">LLM Consensus:</span>
+                                    <span class="text-green-400">OpenAI: BUY</span>
+                                    <span class="text-white/20">•</span>
+                                    <span class="text-green-400">Claude: BUY</span>
+                                    <span class="text-white/20">•</span>
+                                    <span class="text-amber-400">Mistral: HOLD</span>
+                                </div>
+                            </div>
+
+                            <p class="text-cyan-50/60 leading-relaxed text-sm">
+                                <span class="text-cyan-50/80 font-medium">Key Findings:</span> NVIDIA shows exceptional revenue growth driven by Data Center segment (+154% YoY). Operating margins remain strong at 73%. The elevated P/E of 43x is justified by growth trajectory.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- User Message -->
+                    <div class="flex justify-end">
+                        <div class="message-user rounded-2xl rounded-br-md px-5 py-3 max-w-lg">
+                            <p class="text-white/90 text-[15px]">How does this compare to AMD?</p>
+                        </div>
+                    </div>
+
+                    <!-- AI Response with AMD -->
+                    <div class="flex justify-start">
+                        <div class="message-ai max-w-2xl space-y-4">
+                            <p class="text-cyan-50/80 leading-relaxed text-[15px]">
+                                Let me pull the analysis for <span class="ticker-pill">
+                                    $AMD
+                                    <div class="ticker-card">
+                                        <div class="flex items-center justify-between mb-2">
+                                            <span class="text-white font-semibold">AMD</span>
+                                            <span class="text-xs text-white/40">Advanced Micro</span>
+                                        </div>
+                                        <div class="text-2xl font-bold text-white mono mb-2">$124.80</div>
+                                        <!-- SVG Sparkline for AMD - different pattern -->
+                                        <div class="mb-3">
+                                            <svg width="100%" height="40" viewBox="0 0 120 40" fill="none" stroke="currentColor" class="text-emerald-400">
+                                                <defs>
+                                                    <linearGradient id="sparkGradientAMD" x1="0" y1="0" x2="0" y2="1">
+                                                        <stop offset="0%" stop-color="#fbbf24" stop-opacity="0.3"/>
+                                                        <stop offset="100%" stop-color="#fbbf24" stop-opacity="0"/>
+                                                    </linearGradient>
+                                                </defs>
+                                                <path d="M0 20 L15 25 L30 18 L45 30 L60 22 L75 28 L90 20 L105 25 L120 22 V 40 H 0 Z" fill="url(#sparkGradientAMD)" stroke="none" />
+                                                <path d="M0 20 L15 25 L30 18 L45 30 L60 22 L75 28 L90 20 L105 25 L120 22" stroke="#fbbf24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                                            </svg>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-amber-400 text-sm mono">-0.82%</span>
+                                            <span class="text-white/30 text-xs">today</span>
+                                        </div>
+                                    </div>
+                                </span><span class="text-cyan-50/80"> to compare:</span>
+                            </p>
+
+                            <!-- Comparison Card -->
+                            <div class="analysis-card rounded-xl p-5">
+                                <div class="flex items-center justify-between mb-4">
+                                    <h3 class="text-white/90 font-semibold text-sm">NVDA vs AMD Comparison</h3>
+                                    <span class="px-3 py-1 rounded-full text-xs font-bold mono badge-hold">HOLD</span>
+                                </div>
+
+                                <div class="grid grid-cols-3 gap-4 mb-4 text-center">
+                                    <div></div>
+                                    <div class="text-[10px] text-cyan-400/70 mono font-medium">NVDA</div>
+                                    <div class="text-[10px] text-amber-400/70 mono font-medium">AMD</div>
+
+                                    <div class="text-[10px] text-white/30 mono text-left">Revenue YoY</div>
+                                    <div class="text-sm font-bold text-green-400 mono">+122%</div>
+                                    <div class="text-sm font-bold text-amber-400 mono">+10%</div>
+
+                                    <div class="text-[10px] text-white/30 mono text-left">P/E Ratio</div>
+                                    <div class="text-sm font-bold text-white/80 mono">43.18</div>
+                                    <div class="text-sm font-bold text-white/80 mono">108.5</div>
+
+                                    <div class="text-[10px] text-white/30 mono text-left">Margin</div>
+                                    <div class="text-sm font-bold text-green-400 mono">73%</div>
+                                    <div class="text-sm font-bold text-white/80 mono">22%</div>
+                                </div>
+
+                                <div class="flex items-center gap-2 text-[11px] text-white/40 border-t border-white/5 pt-3">
+                                    <span class="mono">AMD Consensus:</span>
+                                    <span class="text-amber-400">OpenAI: HOLD</span>
+                                    <span class="text-white/20">•</span>
+                                    <span class="text-amber-400">Claude: HOLD</span>
+                                    <span class="text-white/20">•</span>
+                                    <span class="text-amber-400">Mistral: HOLD</span>
+                                </div>
+                            </div>
+
+                            <p class="text-cyan-50/60 leading-relaxed text-sm">
+                                <span class="text-cyan-50/80 font-medium">Summary:</span> While NVDA dominates the AI chip market with superior margins and growth, AMD trades at a higher P/E despite slower growth. NVDA remains the stronger play for AI exposure.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- User Message -->
+                    <div class="flex justify-end">
+                        <div class="message-user rounded-2xl rounded-br-md px-5 py-3 max-w-lg">
+                            <p class="text-white/90 text-[15px]">What about TSLA?</p>
+                        </div>
+                    </div>
+
+                    <!-- AI Typing -->
+                    <div class="flex justify-start" id="typing-indicator">
+                        <div class="message-ai">
+                            <div class="typing-indicator">
+                                <div class="typing-dot"></div>
+                                <div class="typing-dot"></div>
+                                <div class="typing-dot"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Input Area -->
+                <div class="p-4 border-t border-white/5">
+                    <div class="input-glass rounded-xl px-4 py-3 flex items-center gap-3">
+                        <svg class="w-5 h-5 text-cyan-400/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
+                        </svg>
+                        <input type="text" placeholder="research $AAPL" class="input-field flex-1 py-2" />
+                        <button class="btn-send w-10 h-10 rounded-lg flex items-center justify-center" id="send-btn">
+                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="flex items-center justify-between mt-2 px-1">
+                        <span class="text-[10px] text-white/20 mono">Press Enter to send</span>
+                        <span class="text-[10px] text-white/20 mono">3 LLMs active</span>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Particle System - Data Stream Physics -->
+    <script>
+        const canvas = document.getElementById('particle-canvas');
+        const ctx = canvas.getContext('2d');
+        let isThinking = false;
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // Data Stream Particle
+        class DataParticle {
+            constructor(randomStart = true) {
+                this.reset(randomStart);
+            }
+
+            reset(randomStart = false) {
+                this.x = randomStart ? Math.random() * canvas.width : -10;
+                this.y = Math.random() * canvas.height;
+
+                // Base speed (idle)
+                this.baseSpeed = 0.3 + Math.random() * 0.7;
+                this.speed = this.baseSpeed;
+                this.vx = this.speed;
+                this.vy = 0;
+
+                this.size = 1 + (this.baseSpeed * 1.5);
+                this.baseOpacity = 0.2 + (this.baseSpeed * 0.4);
+
+                // Idle colors
+                this.idleColors = [
+                    `rgba(125, 211, 252, ${this.baseOpacity})`,
+                    `rgba(56, 189, 248, ${this.baseOpacity * 0.9})`,
+                    `rgba(94, 234, 212, ${this.baseOpacity * 0.7})`,
+                    `rgba(186, 230, 253, ${this.baseOpacity * 0.6})`,
+                ];
+
+                // Thinking colors (warm)
+                this.thinkingColors = [
+                    `rgba(251, 191, 36, ${this.baseOpacity * 1.2})`,
+                    `rgba(245, 158, 11, ${this.baseOpacity})`,
+                    `rgba(217, 119, 6, ${this.baseOpacity * 0.8})`,
+                    `rgba(252, 211, 77, ${this.baseOpacity * 0.9})`,
+                ];
+
+                this.colorIndex = Math.floor(Math.random() * this.idleColors.length);
+                this.color = this.idleColors[this.colorIndex];
+                this.trailLength = this.baseSpeed * 15;
+            }
+
+            update() {
+                // Speed multiplier when thinking
+                const speedMult = isThinking ? 4 : 1;
+                this.speed = this.baseSpeed * speedMult;
+                this.vx = this.speed;
+
+                // Update color based on state
+                this.color = isThinking
+                    ? this.thinkingColors[this.colorIndex]
+                    : this.idleColors[this.colorIndex];
+
+                // Trail length increases when thinking
+                this.trailLength = this.baseSpeed * (isThinking ? 40 : 15);
+
+                this.x += this.vx;
+                this.y += Math.sin(this.x * 0.01) * 0.1;
+
+                if (this.x > canvas.width + 20) {
+                    this.reset(false);
+                }
+
+                if (this.y < 0) this.y = canvas.height;
+                if (this.y > canvas.height) this.y = 0;
+            }
+
+            draw() {
+                // Motion trail
+                const gradient = ctx.createLinearGradient(
+                    this.x - this.trailLength, this.y,
+                    this.x, this.y
+                );
+                gradient.addColorStop(0, 'transparent');
+                gradient.addColorStop(1, this.color);
+
+                ctx.beginPath();
+                ctx.moveTo(this.x - this.trailLength, this.y);
+                ctx.lineTo(this.x, this.y);
+                ctx.strokeStyle = gradient;
+                ctx.lineWidth = this.size * 0.8;
+                ctx.lineCap = 'round';
+                ctx.stroke();
+
+                // Particle head
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.shadowBlur = isThinking ? 15 : 8;
+                ctx.shadowColor = this.color;
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+        }
+
+        const particleCount = 150;
+        const particles = [];
+        for (let i = 0; i < particleCount; i++) {
+            particles.push(new DataParticle(true));
+        }
+
+        const connectionDistance = 70;
+
+        function animate() {
+            const fadeAlpha = isThinking ? 0.08 : 0.12;
+            ctx.fillStyle = `rgba(5, 10, 18, ${fadeAlpha})`;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            particles.forEach(p => {
+                p.update();
+                p.draw();
+            });
+
+            // Connections
+            for (let i = 0; i < particles.length; i++) {
+                for (let j = i + 1; j < particles.length; j++) {
+                    const dx = particles[i].x - particles[j].x;
+                    const dy = particles[i].y - particles[j].y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+
+                    if (dist < connectionDistance) {
+                        const opacity = (1 - dist / connectionDistance) * 0.12;
+                        const connColor = isThinking
+                            ? `rgba(251, 191, 36, ${opacity})`
+                            : `rgba(125, 211, 252, ${opacity})`;
+                        ctx.beginPath();
+                        ctx.strokeStyle = connColor;
+                        ctx.lineWidth = 0.5;
+                        ctx.moveTo(particles[i].x, particles[i].y);
+                        ctx.lineTo(particles[j].x, particles[j].y);
+                        ctx.stroke();
+                    }
+                }
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+
+        // Mouse interaction
+        canvas.addEventListener('mousemove', (e) => {
+            particles.forEach(p => {
+                const dx = p.x - e.clientX;
+                const dy = p.y - e.clientY;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (dist < 80) {
+                    const angle = Math.atan2(dy, dx);
+                    const force = (80 - dist) / 80;
+                    p.y += Math.sin(angle) * force * 1.5;
+                }
+            });
+        });
+
+        // Auto-scroll logic - keeps chat at bottom during updates
+        const chatContainer = document.querySelector('.chat-container');
+
+        function scrollToBottom() {
+            chatContainer.scrollTo({
+                top: chatContainer.scrollHeight,
+                behavior: 'smooth'
+            });
+        }
+
+        // MutationObserver to auto-scroll when content changes
+        const observer = new MutationObserver(scrollToBottom);
+        observer.observe(chatContainer, { childList: true, subtree: true });
+
+        // Initial scroll to bottom
+        scrollToBottom();
+
+        // Toggle thinking state
+        const sendBtn = document.getElementById('send-btn');
+        sendBtn.addEventListener('click', () => {
+            isThinking = !isThinking;
+            document.body.classList.toggle('thinking', isThinking);
+
+            if (isThinking) {
+                sendBtn.classList.remove('btn-send');
+                sendBtn.classList.add('btn-stop');
+                sendBtn.innerHTML = '<svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>';
+            } else {
+                sendBtn.classList.remove('btn-stop');
+                sendBtn.classList.add('btn-send');
+                sendBtn.innerHTML = '<svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>';
+            }
+        });
+
+        // Auto-demo thinking state
+        setTimeout(() => {
+            isThinking = true;
+            document.body.classList.add('thinking');
+        }, 2000);
+
+        setTimeout(() => {
+            isThinking = false;
+            document.body.classList.remove('thinking');
+        }, 5000);
+    </script>
+</body>
+</html>

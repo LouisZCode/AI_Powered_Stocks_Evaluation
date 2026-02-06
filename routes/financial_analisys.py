@@ -5,7 +5,7 @@ from fastapi import Depends, HTTPException
 from pydantic import BaseModel
 from agents import create_financial_agent
 
-from database import get_db, add_clean_fillings_to_database
+from database import get_db
 
 import asyncio
 import time
@@ -24,15 +24,10 @@ async def evaluate_financials(ticker_symbol : str, request : EvalRequest, db : S
     # Start log
     start_new_log(ticker_symbol)
 
-    # 1. Check if ticker exists in chunks, if not fetch SEC filings
-    ticker = db.query(DocumentChunk).filter_by(ticker=ticker_symbol).first()
-    if not ticker:
-        await asyncio.to_thread(add_clean_fillings_to_database, ticker_symbol)
-
-    # 2. Get latest filing date for cache key
+    # 1. Get latest filing date for cache key
     latest_filing = db.query(func.max(DocumentChunk.filing_date)).filter_by(ticker=ticker_symbol).scalar()
 
-    # 3. Check cache: which models already analyzed this ticker with current filing?
+    # 2. Check cache: which models already analyzed this ticker with current filing?
     cached = db.query(LLMFinancialAnalysis).filter(
         and_(
             LLMFinancialAnalysis.ticker == ticker_symbol,
@@ -48,7 +43,7 @@ async def evaluate_financials(ticker_symbol : str, request : EvalRequest, db : S
     for model_name, analysis in cached_results.items():
         log_cached_result(model_name, analysis)
 
-    # 4. Run LLMs only for models not in cache
+    # 3. Run LLMs only for models not in cache
     async def run_model(model_name: str):
         try:
             agent = create_financial_agent(model_name)
@@ -69,7 +64,7 @@ async def evaluate_financials(ticker_symbol : str, request : EvalRequest, db : S
     tasks = [run_model(m) for m in models_to_run]
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
-    # 5. Process fresh results and save to cache
+    # 4. Process fresh results and save to cache
     fresh_results = {}
     for result in results:
         if isinstance(result, Exception):
@@ -88,7 +83,7 @@ async def evaluate_financials(ticker_symbol : str, request : EvalRequest, db : S
 
     db.commit()
 
-    # 6. Merge cached + fresh results
+    # 5. Merge cached + fresh results
     evaluations = {**cached_results, **fresh_results}
 
     return {"evaluations": evaluations}
