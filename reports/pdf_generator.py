@@ -79,9 +79,26 @@ def _prepare_report_data(
 
     clear_entries = [e for e in harmonization_log if e['action'] in ('already_aligned', 'harmonized')]
     complex_entries = [e for e in harmonization_log if e['action'] == 'debate']
+    skipped_entries = [e for e in harmonization_log if e['action'] == 'skipped']
 
     debate_results = debate_result.get('debate_results', {}) if debate_result else {}
     position_changes = debate_result.get('position_changes', []) if debate_result else []
+
+    # Build skipped metrics (insufficient data)
+    skipped_metrics = []
+    for entry in skipped_entries:
+        metric = entry['metric']
+        ratings = entry.get('ratings', {})
+        if isinstance(ratings, dict):
+            available = {k: v for k, v in ratings.items() if v is not None}
+        else:
+            available = {}
+        skipped_metrics.append({
+            'name': metric,
+            'available_count': len(available),
+            'total_count': len(original_analyses),
+            'available_ratings': available,
+        })
 
     # Build clear metrics with reasons
     clear_metrics = []
@@ -168,9 +185,13 @@ def _prepare_report_data(
         'watch': watch,
         'concerns': concerns,
         'unresolved': unresolved,
+        'skipped_metrics': skipped_metrics,
         'num_experts': len(original_analyses),
+        'num_clear': len(clear_entries),
         'num_debates': len(complex_entries),
         'num_resolved': len(complex_entries) - len(unresolved),
+        'num_skipped': len(skipped_entries),
+        'num_total': len(clear_entries) + len(complex_entries) + len(skipped_entries),
         'model_names': list(original_analyses.keys()),
     }
 

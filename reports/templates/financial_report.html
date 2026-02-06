@@ -205,6 +205,19 @@
             color: #6b7280;
             margin-top: 4px;
         }
+
+        /* Insufficient data */
+        .metric.insufficient {
+            background: #f3f4f6;
+            border: 1px dashed #d1d5db;
+        }
+        .rating-insufficient {
+            color: #9ca3af;
+            font-weight: 700;
+        }
+        .dot-insufficient {
+            background-color: #d1d5db;
+        }
     </style>
 </head>
 <body>
@@ -232,7 +245,7 @@
     <!-- Clear Metrics -->
     {% if clear_metrics %}
     <div class="section">
-        <div class="section-title">Clear Metrics ({{ clear_metrics|length }}/8)</div>
+        <div class="section-title">Clear Metrics ({{ num_clear }}/{{ num_total }})</div>
         <div class="section-desc">All {{ num_experts }} experts agreed on these metrics without requiring deeper analysis.</div>
         {% for metric in clear_metrics %}
         <div class="metric">
@@ -253,7 +266,7 @@
     <!-- Complex Metrics -->
     {% if complex_metrics %}
     <div class="section">
-        <div class="section-title">Debated Metrics ({{ complex_metrics|length }}/8)</div>
+        <div class="section-title">Debated Metrics ({{ num_debates }}/{{ num_total }})</div>
         <div class="section-desc">These metrics had differing expert opinions and required deeper analysis.</div>
         {% for metric in complex_metrics %}
         <div class="metric {% if metric.is_complex %}complex{% endif %}">
@@ -288,6 +301,25 @@
             {% elif metric.is_complex %}
             <div class="metric-reason" style="color: #5b21b6; margin-top: 6px;">No consensus reached - requires user review.</div>
             {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Insufficient Data Metrics -->
+    {% if skipped_metrics %}
+    <div class="section">
+        <div class="section-title">Insufficient Data ({{ num_skipped }}/{{ num_total }})</div>
+        <div class="section-desc">Not enough experts had data available to evaluate these metrics.</div>
+        {% for metric in skipped_metrics %}
+        <div class="metric insufficient">
+            <div class="metric-header">
+                <span class="rating-dot dot-insufficient"></span>
+                <span class="metric-name">{{ metric.name | replace('_', ' ') | title }}</span>
+                <span>—</span>
+                <span class="rating-insufficient">Insufficient Data</span>
+            </div>
+            <div class="metric-reason">Only {{ metric.available_count }} of {{ metric.total_count }} experts found data for this metric.{% if metric.available_ratings %} Available: {{ metric.available_ratings.values() | join(', ') }}.{% endif %}</div>
         </div>
         {% endfor %}
     </div>
