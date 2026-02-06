@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ ticker }} Financial Report</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 2cm;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-size: 11pt;
+            line-height: 1.5;
+            color: #1a1a1a;
+            background: #fff;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 20px;
+            border-bottom: 3px solid #1a1a1a;
+            margin-bottom: 25px;
+        }
+
+        .header-left h1 {
+            font-size: 22pt;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        .header-left .ticker {
+            font-size: 14pt;
+            color: #374151;
+            font-weight: 600;
+            margin-top: 4px;
+        }
+
+        .header-right {
+            text-align: right;
+        }
+
+        .gauge-container {
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        /* Sections */
+        .section {
+            margin-bottom: 25px;
+        }
+
+        .section-title {
+            font-size: 13pt;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #1a1a1a;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #e5e7eb;
+            margin-bottom: 15px;
+        }
+
+        /* Metrics */
+        .metric {
+            margin-bottom: 15px;
+            padding: 12px 15px;
+            background: #f9fafb;
+            border-radius: 6px;
+            break-inside: avoid;
+            page-break-inside: avoid;
+        }
+
+        .metric.complex { background: #faf5ff; }
+
+        .metric-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 6px;
+            gap: 8px;
+        }
+
+        .metric-name {
+            font-weight: 600;
+            font-size: 11pt;
+        }
+
+        .metric-rating {
+            font-size: 11pt;
+            font-weight: 700;
+        }
+
+        .rating-excellent { color: #059669; font-weight: 700; }
+        .rating-good { color: #10b981; font-weight: 700; }
+        .rating-neutral { color: #6b7280; font-weight: 700; }
+        .rating-bad { color: #dc2626; font-weight: 700; }
+        .rating-horrible { color: #991b1b; font-weight: 700; }
+        .rating-complex { color: #7c3aed; font-weight: 700; }
+
+        .metric-reason {
+            font-size: 10pt;
+            color: #4b5563;
+            margin-top: 6px;
+        }
+
+        .metric-before {
+            font-size: 9pt;
+            color: #6b7280;
+            margin-bottom: 4px;
+        }
+
+        /* Summary Box */
+        .summary-box {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        .summary-row {
+            display: flex;
+            margin-bottom: 10px;
+        }
+
+        .summary-label {
+            font-weight: 600;
+            min-width: 100px;
+            color: #374151;
+        }
+
+        .summary-value {
+            color: #1a1a1a;
+        }
+
+        /* Footer */
+        .footer {
+            margin-top: 30px;
+            padding-top: 15px;
+            border-top: 1px solid #e5e7eb;
+            font-size: 9pt;
+            color: #9ca3af;
+            text-align: center;
+        }
+
+        /* Overall Summary Box */
+        .overall-summary {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 15px 18px;
+            margin-bottom: 25px;
+        }
+
+        .overall-summary-title {
+            font-size: 11pt;
+            font-weight: 700;
+            color: #1a1a1a;
+            margin-bottom: 8px;
+        }
+
+        .overall-summary-text {
+            font-size: 10pt;
+            color: #374151;
+            line-height: 1.6;
+        }
+
+        /* Section description */
+        .section-desc {
+            font-size: 9pt;
+            color: #6b7280;
+            margin-top: -10px;
+            margin-bottom: 12px;
+            font-style: italic;
+        }
+
+        /* Colored circle indicator */
+        .rating-dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .dot-excellent { background-color: #059669; }
+        .dot-good { background-color: #10b981; }
+        .dot-neutral { background-color: #9ca3af; }
+        .dot-bad { background-color: #dc2626; }
+        .dot-horrible { background-color: #991b1b; }
+        .dot-complex { background-color: #7c3aed; }
+
+        /* Position changes */
+        .position-change {
+            font-size: 9pt;
+            color: #6b7280;
+            margin-top: 4px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <div class="header-left">
+            <h1>Financial Analysis Report</h1>
+            <div class="ticker">{{ ticker }} — {{ generated_date }}</div>
+        </div>
+        <div class="header-right">
+            <div class="gauge-container">
+              {{ gauge_svg | safe }}
+            </div>
+        </div>
+    </div>
+
+    <!-- Overall Summary -->
+    {% if overall_summary %}
+    <div class="overall-summary">
+        <div class="overall-summary-title">Executive Summary on Financial Data</div>
+        <div class="overall-summary-text">{{ overall_summary }}</div>
+    </div>
+    {% endif %}
+
+    <!-- Clear Metrics -->
+    {% if clear_metrics %}
+    <div class="section">
+        <div class="section-title">Clear Metrics ({{ clear_metrics|length }}/8)</div>
+        <div class="section-desc">All {{ num_experts }} experts agreed on these metrics without requiring deeper analysis.</div>
+        {% for metric in clear_metrics %}
+        <div class="metric">
+            <div class="metric-header">
+                <span class="rating-dot dot-{{ metric.rating_class }}"></span>
+                <span class="metric-name">{{ metric.name | replace('_', ' ') | title }}</span>
+                <span>—</span>
+                <span class="metric-rating rating-{{ metric.rating_class }}">{{ metric.rating }}</span>
+            </div>
+            {% if metric.reason %}
+            <div class="metric-reason">{{ metric.reason }}</div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Complex Metrics -->
+    {% if complex_metrics %}
+    <div class="section">
+        <div class="section-title">Debated Metrics ({{ complex_metrics|length }}/8)</div>
+        <div class="section-desc">These metrics had differing expert opinions and required deeper analysis.</div>
+        {% for metric in complex_metrics %}
+        <div class="metric {% if metric.is_complex %}complex{% endif %}">
+            <div class="metric-header">
+                <span class="rating-dot dot-{% if metric.is_complex %}complex{% else %}{{ metric.rating_class }}{% endif %}"></span>
+                <span class="metric-name">{{ metric.name | replace('_', ' ') | title }}</span>
+                <span>—</span>
+                <span class="metric-rating rating-{% if metric.is_complex %}complex{% else %}{{ metric.rating_class }}{% endif %}">
+                    Consensus: {% if metric.is_complex %}Complex{% else %}{{ metric.final_rating }}{% endif %}
+                </span>
+            </div>
+            <div class="metric-before">Before Deeper Analysis: {{ metric.before_ratings | join(', ') }}</div>
+            {% if metric.expert_reasons %}
+            <div class="metric-reason" style="margin-top: 8px;">
+                {% for er in metric.expert_reasons %}
+                <div style="margin-bottom: 4px;"><strong>{{ er.rating }}:</strong> {{ er.reason }}</div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% if metric.debate_rounds %}
+            <div class="metric-reason" style="font-style: italic; margin-top: 12px;">
+                Our experts conducted <strong>{{ metric.debate_rounds }}</strong> round(s) of deeper analysis.
+            </div>
+            {% endif %}
+            {% if metric.position_changes %}
+            {% for change in metric.position_changes %}
+            <div class="position-change">{{ change.llm }} changed position: {{ change.from }} → {{ change.to }}</div>
+            {% endfor %}
+            {% endif %}
+            {% if metric.reason and not metric.is_complex %}
+            <div class="metric-reason" style="margin-top: 6px;"><strong>Final Assessment:</strong> {{ metric.reason }}</div>
+            {% elif metric.is_complex %}
+            <div class="metric-reason" style="color: #5b21b6; margin-top: 6px;">No consensus reached - requires user review.</div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Summary -->
+    <div class="section">
+        <div class="section-title">Financial Analysis Summary</div>
+        <div class="summary-box">
+            <div class="summary-row">
+                <span class="summary-label">Verdict:</span>
+                <span class="summary-value">{{ verdict }} ({{ score_display }}/16)</span>
+            </div>
+            <div class="summary-row">
+                <span class="summary-label">Experts:</span>
+                <span class="summary-value">{{ model_names | join(', ') }}</span>
+            </div>
+            <div class="summary-row">
+                <span class="summary-label">Strengths:</span>
+                <span class="summary-value">{% if strengths %}{{ strengths | map(attribute='name') | join(', ') | replace('_', ' ') | title }}{% else %}None found to date{% endif %}</span>
+            </div>
+            {% if watch %}
+            <div class="summary-row">
+                <span class="summary-label">Watch:</span>
+                <span class="summary-value">{{ watch | map(attribute='name') | join(', ') | replace('_', ' ') | title }}</span>
+            </div>
+            {% endif %}
+            <div class="summary-row">
+                <span class="summary-label">Concerns:</span>
+                <span class="summary-value">{% if concerns %}{{ concerns | map(attribute='name') | join(', ') | replace('_', ' ') | title }}{% else %}None found to date{% endif %}</span>
+            </div>
+            {% if unresolved %}
+            <div class="summary-row">
+                <span class="summary-label">Unresolved:</span>
+                <span class="summary-value" style="color: #5b21b6;">{{ unresolved | map(attribute='name') | join(', ') | replace('_', ' ') | title }}</span>
+            </div>
+            {% endif %}
+            {% if num_debates > 0 %}
+            <div class="summary-row">
+                <span class="summary-label">Debates:</span>
+                <span class="summary-value">{{ num_debates }} metric(s) debated, {{ num_resolved }} resolved</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+        Generated by LLM Counsel - {{ generated_date }} at {{ generated_time }}<br>
+        This report covers only financial data analysis using AI Powered technology.<br>
+        For a complete research, check out our AI Powered Potential Analysis and our Personalized Portfolio Balancing Tools.
+    </div>
+</body>
+</html>
