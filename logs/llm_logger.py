@@ -197,12 +197,12 @@ def log_harmonization(harmonize_result: dict, final_scores: list[int] = None, lo
         if harmonized or aligned:
             f.write("Harmonized Metrics:\n")
             for entry in harmonized:
-                original = entry.get('original', [])
-                original_str = ', '.join(str(r) for r in original)
+                original = entry.get('original', {})
+                original_str = ', '.join(f"{k}:{v}" for k, v in original.items()) if isinstance(original, dict) else ', '.join(str(r) for r in original)
                 f.write(f"  {entry['metric']:20}: [{original_str}] → {entry['result']}\n")
             for entry in aligned:
-                ratings = entry.get('ratings', [])
-                ratings_str = ', '.join(str(r) for r in ratings)
+                ratings = entry.get('ratings', {})
+                ratings_str = ', '.join(f"{k}:{v}" for k, v in ratings.items()) if isinstance(ratings, dict) else ', '.join(str(r) for r in ratings)
                 f.write(f"  {entry['metric']:20}: [{ratings_str}] → {entry['result']} (no change)\n")
             f.write("\n")
 
@@ -210,8 +210,8 @@ def log_harmonization(harmonize_result: dict, final_scores: list[int] = None, lo
         if debates:
             f.write("Metrics Flagged for Debate:\n")
             for entry in debates:
-                ratings = entry.get('ratings', [])
-                ratings_str = ', '.join(str(r) if r else 'missing' for r in ratings)
+                ratings = entry.get('ratings', {})
+                ratings_str = ', '.join(f"{k}:{v}" for k, v in ratings.items()) if isinstance(ratings, dict) else ', '.join(str(r) if r else 'missing' for r in ratings)
                 reason = entry.get('reason', 'unknown')
                 f.write(f"  {entry['metric']:20}: [{ratings_str}] → {reason}\n")
             f.write("\n")
@@ -220,8 +220,8 @@ def log_harmonization(harmonize_result: dict, final_scores: list[int] = None, lo
         if skipped:
             f.write("Skipped (insufficient data):\n")
             for entry in skipped:
-                ratings = entry.get('ratings', [])
-                ratings_str = ', '.join(str(r) if r else 'missing' for r in ratings)
+                ratings = entry.get('ratings', {})
+                ratings_str = ', '.join(f"{k}:{v}" for k, v in ratings.items()) if isinstance(ratings, dict) else ', '.join(str(r) if r else 'missing' for r in ratings)
                 f.write(f"  {entry['metric']:20}: [{ratings_str}]\n")
             f.write("\n")
 
