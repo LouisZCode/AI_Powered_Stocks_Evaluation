@@ -2,9 +2,16 @@
 
 from agents.agents import AVAILABLE_MODELS
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from routes import all_routes
 
 app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 for router in all_routes:
     app.include_router(router)
 
