@@ -13,7 +13,7 @@ import time
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, func
 
-from logs import start_new_log, log_llm_conversation, log_llm_timing, log_cached_result
+from logs import start_new_log, log_llm_conversation, log_llm_timing, log_llm_start, log_llm_finish, log_cached_result
 router = APIRouter()
 
 class EvalRequest(BaseModel):
@@ -53,9 +53,11 @@ async def evaluate_financials(ticker_symbol : str, request : EvalRequest, db : S
         try:
             agent = create_financial_agent(model_name)
 
+            log_llm_start(model_name)
             start_time = time.time()
             response = await agent.ainvoke({"messages": {"role": "user", "content": ticker_symbol}})
             elapsed = time.time() - start_time
+            log_llm_finish(model_name, elapsed)
             log_llm_conversation(model_name, response)
             log_llm_timing(elapsed)
 

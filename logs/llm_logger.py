@@ -38,6 +38,30 @@ def start_new_log(ticker: str) -> str:
     return filepath
 
 
+def log_llm_start(llm_name: str, log_file: str = None):
+    """Logs when an LLM is launched."""
+    filepath = log_file or _current_log_file
+    if not filepath:
+        print(f"Warning: No log file set. Call start_new_log() first.")
+        return
+    timestamp = datetime.now().strftime("%H:%M:%S")
+    with open(filepath, "a", encoding="utf-8") as f:
+        f.write(f"[{timestamp}] {llm_name.upper()} → launched\n")
+    print(f"[{timestamp}] {llm_name.upper()} → launched")
+
+
+def log_llm_finish(llm_name: str, elapsed_time: float, log_file: str = None):
+    """Logs when an LLM finishes with its time."""
+    filepath = log_file or _current_log_file
+    if not filepath:
+        print(f"Warning: No log file set. Call start_new_log() first.")
+        return
+    timestamp = datetime.now().strftime("%H:%M:%S")
+    with open(filepath, "a", encoding="utf-8") as f:
+        f.write(f"[{timestamp}] {llm_name.upper()} → finished ({elapsed_time:.2f}s)\n")
+    print(f"[{timestamp}] {llm_name.upper()} → finished ({elapsed_time:.2f}s)")
+
+
 def log_llm_timing(elapsed_time: float, log_file: str = None):
     """
     Logs the time taken for all LLM calls to complete.
