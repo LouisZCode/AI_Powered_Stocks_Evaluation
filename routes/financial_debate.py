@@ -7,7 +7,8 @@ from database.orm import LLMFinancialAnalysis
 from pydantic import BaseModel
 from sqlalchemy import and_
 
-import asyncio
+from func import run_debate
+from logs import start_new_log, log_debate_transcript
 
 router = APIRouter()
 
@@ -20,5 +21,43 @@ class DebateRequest(BaseModel):
 
 @router.post("/debate/financials/{ticker_symbol}")
 async def debate_financial_analysis(ticker_symbol: str, request: DebateRequest, db: Session = Depends(get_db)):
-    # TODO: your debate logic here
-    pass
+
+    start_new_log(f"{ticker_symbol}_debate")
+
+    if len(request.models) < 2:
+        return {"error": f"Debate needs at least 2 LLMs, you only added {request.models[0]}"}
+
+    if not request.metrics:
+        return {"error": "No metrics provided to debate"}
+
+    # Fetch cached analyses for requested models
+    analyses = db.query(LLMFinancialAnalysis).filter(
+        and_(
+            LLMFinancialAnalysis.ticker == ticker_symbol,
+            LLMFinancialAnalysis.llm_model.in_(request.models),
+        )
+    ).all()
+
+    analysis_dicts = {a.llm_model: a.analysis for a in analyses}
+
+    missing = [m for m in request.models if m not in analysis_dicts]
+    if missing:
+        return {"error": f"Missing analyses for: {missing}. Run /financials first."}
+
+    # Run debate
+    result = await run_debate(
+        ticker=ticker_symbol,
+        metrics_to_debate=request.metrics,
+        analysis_dicts=analysis_dicts,
+        rounds=request.rounds
+    )
+
+    log_debate_transcript(result)
+
+    return {
+        'ticker': ticker_symbol,
+        'models_used': request.models,
+        'rounds': request.rounds,
+        'debate_results': result['debate_results'],
+        'position_changes': result['position_changes'],
+    }

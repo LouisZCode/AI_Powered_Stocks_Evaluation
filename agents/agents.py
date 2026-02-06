@@ -51,15 +51,29 @@ class FinancialInformation(TypedDict):
     financial_strenght: str
     overall_summary: str
 
+debater_system_prompt = prompts["THE_DEBATER"]
+
+
 def create_financial_agent(model_key : str):
     if model_key not in AVAILABLE_MODELS:
         raise ValueError(f"Unknown Model: {model_key}")
-    
+
     return create_agent(
     model=AVAILABLE_MODELS[model_key],
     system_prompt=financial_strenght_system_prompt,
     response_format=FinancialInformation,
     tools=[retrieval_tool]
+    )
+
+
+def create_debate_agent(model_key: str):
+    if model_key not in AVAILABLE_MODELS:
+        raise ValueError(f"Unknown Model: {model_key}")
+
+    return create_agent(
+        model=AVAILABLE_MODELS[model_key],
+        system_prompt=debater_system_prompt,
+        tools=[]
     )
 
 # to test  python -m agents.agents
