@@ -31,7 +31,7 @@ export default function ParticleCanvas({ isThinking }: Props) {
     if (!ctx) return;
 
     let animId: number;
-    const COUNT = 120;
+    const COUNT = 1000;
     const CONNECTION_DIST = 70;
 
     const resize = () => {

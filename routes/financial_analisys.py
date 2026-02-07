@@ -13,7 +13,7 @@ import time
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, func
 
-from logs import start_new_log, log_llm_conversation, log_llm_timing, log_llm_start, log_llm_finish, log_cached_result
+from logs import start_new_log, log_llm_conversation, log_llm_timing, log_llm_start, log_llm_finish, log_cached_result, log_llm_retry, log_llm_error
 router = APIRouter()
 
 class EvalRequest(BaseModel):
@@ -44,35 +44,71 @@ async def evaluate_financials(ticker_symbol : str, request : EvalRequest, db : S
         log_cached_result(model_name, analysis)
 
     # 3. Run LLMs only for models not in cache
+    MAX_ATTEMPTS = 3
+    TIMEOUT_SECONDS = 120
+    BACKOFF_SECONDS = [2, 4]  # wait times between retries
+
     async def run_model(model_name: str):
+        # Fail fast on bad model name (no retry)
         try:
             agent = create_financial_agent(model_name)
-
-            log_llm_start(model_name)
-            start_time = time.time()
-            response = await agent.ainvoke({"messages": {"role": "user", "content": ticker_symbol}})
-            elapsed = time.time() - start_time
-            log_llm_finish(model_name, elapsed)
-            log_llm_conversation(model_name, response)
-            log_llm_timing(elapsed)
-
-            return model_name, response["structured_response"]
-
         except ValueError:
-            raise HTTPException(status_code=500, detail=f"Please select a model to do the evaluation of {ticker_symbol}")
+            raise HTTPException(status_code=500, detail=f"Unknown model: {model_name}")
+
+        last_error = None
+        for attempt in range(1, MAX_ATTEMPTS + 1):
+            try:
+                log_llm_start(model_name)
+                start_time = time.time()
+                response = await asyncio.wait_for(
+                    agent.ainvoke({"messages": {"role": "user", "content": ticker_symbol}}),
+                    timeout=TIMEOUT_SECONDS,
+                )
+                elapsed = time.time() - start_time
+                log_llm_finish(model_name, elapsed)
+                log_llm_conversation(model_name, response)
+                log_llm_timing(elapsed)
+
+                return model_name, response["structured_response"]
+
+            except asyncio.TimeoutError:
+                last_error = f"Timed out after {TIMEOUT_SECONDS}s"
+            except Exception as e:
+                last_error = str(e)
+
+            # If retries remain, log and wait
+            if attempt < MAX_ATTEMPTS:
+                wait = BACKOFF_SECONDS[attempt - 1]
+                log_llm_retry(model_name, attempt, MAX_ATTEMPTS, last_error, wait)
+                await asyncio.sleep(wait)
+
+        # All retries exhausted
+        error_detail = f"{model_name} failed after {MAX_ATTEMPTS} attempts: {last_error}"
+        log_llm_error(model_name, last_error)
+        raise HTTPException(status_code=504, detail=error_detail)
 
     tasks = [run_model(m) for m in models_to_run]
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
     # 4. Process fresh results and save to cache
     fresh_results = {}
+    errors = []
     for result in results:
         if isinstance(result, Exception):
+            errors.append(result)
             continue
         model_name, response = result
         fresh_results[model_name] = response
 
-        # Save to cache
+    # If no fresh results AND no cached results, surface the first error
+    if not fresh_results and not cached_results and errors:
+        first = errors[0]
+        if isinstance(first, HTTPException):
+            raise first
+        raise HTTPException(status_code=500, detail=str(first))
+
+    # Save fresh results to cache
+    for model_name, response in fresh_results.items():
         new_analysis = LLMFinancialAnalysis(
             ticker=ticker_symbol,
             llm_model=model_name,

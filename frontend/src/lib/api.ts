@@ -44,6 +44,13 @@ export async function analyzeSingleModel(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ models: [model] }),
   });
-  if (!res.ok) throw new Error(`Analysis failed for ${model}`);
+  if (!res.ok) {
+    let detail = `Analysis failed for ${model}`;
+    try {
+      const body = await res.json();
+      if (body.detail) detail = body.detail;
+    } catch {}
+    throw new Error(detail);
+  }
   return res.json();
 }

@@ -62,6 +62,32 @@ def log_llm_finish(llm_name: str, elapsed_time: float, log_file: str = None):
     print(f"[{timestamp}] {llm_name.upper()} → finished ({elapsed_time:.2f}s)")
 
 
+def log_llm_retry(llm_name: str, attempt: int, max_attempts: int, error: str, wait_seconds: float, log_file: str = None):
+    """Logs when an LLM call is being retried."""
+    filepath = log_file or _current_log_file
+    if not filepath:
+        print(f"Warning: No log file set. Call start_new_log() first.")
+        return
+    timestamp = datetime.now().strftime("%H:%M:%S")
+    msg = f"[{timestamp}] {llm_name.upper()} → retry {attempt}/{max_attempts} after error: {error} (waiting {wait_seconds:.0f}s)"
+    with open(filepath, "a", encoding="utf-8") as f:
+        f.write(msg + "\n")
+    print(msg)
+
+
+def log_llm_error(llm_name: str, error: str, log_file: str = None):
+    """Logs when an LLM has permanently failed after all retries."""
+    filepath = log_file or _current_log_file
+    if not filepath:
+        print(f"Warning: No log file set. Call start_new_log() first.")
+        return
+    timestamp = datetime.now().strftime("%H:%M:%S")
+    msg = f"[{timestamp}] {llm_name.upper()} → FAILED: {error}"
+    with open(filepath, "a", encoding="utf-8") as f:
+        f.write(msg + "\n")
+    print(msg)
+
+
 def log_llm_timing(elapsed_time: float, log_file: str = None):
     """
     Logs the time taken for all LLM calls to complete.
