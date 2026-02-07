@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import { useAnalysis } from "@/hooks/useAnalysis";
 import ParticleCanvas from "@/components/ParticleCanvas";
 import GlassContainer from "@/components/GlassContainer";
@@ -11,14 +12,15 @@ import AnalysisResults from "@/components/AnalysisResults";
 export default function Home() {
   const { phase, ingestionData, analysisData, error, modelStatuses, run } = useAnalysis();
   const isLoading = phase === "ingesting" || phase === "analyzing";
+  const progressBarRef = useRef<HTMLDivElement>(null);
 
   return (
     <>
-      <ParticleCanvas isThinking={isLoading} />
+      <ParticleCanvas phase={phase} progressBarRef={progressBarRef} />
       <GlassContainer>
         <Header phase={phase} />
         <TickerInput onSubmit={run} disabled={isLoading} />
-        <PhaseStatus phase={phase} ingestionData={ingestionData} error={error} modelStatuses={modelStatuses} />
+        <PhaseStatus phase={phase} ingestionData={ingestionData} error={error} modelStatuses={modelStatuses} progressBarRef={progressBarRef} />
         {phase === "done" && analysisData && (
           <AnalysisResults data={analysisData} />
         )}

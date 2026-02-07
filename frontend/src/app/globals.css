@@ -62,3 +62,12 @@ body {
 .animate-textTicker {
   animation: textTicker 1.5s ease-in-out both;
 }
+
+/* Progress bar glow animation (SEC data ingestion) */
+@keyframes progressGlow {
+  0%, 100% { box-shadow: 0 0 8px rgba(125, 211, 252, 0.3); }
+  50%      { box-shadow: 0 0 16px rgba(125, 211, 252, 0.5); }
+}
+.progress-bar-glow {
+  animation: progressGlow 2s ease-in-out infinite;
+}

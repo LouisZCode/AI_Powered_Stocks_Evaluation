@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useRef, useState, type RefObject } from "react";
 import type { Phase, IngestionResponse, ModelStatus } from "@/lib/types";
 import LlmTracker from "@/components/LlmTracker";
 
@@ -6,9 +9,44 @@ interface Props {
   ingestionData: IngestionResponse | null;
   error: string | null;
   modelStatuses: ModelStatus[];
+  progressBarRef: RefObject<HTMLDivElement | null>;
 }
 
-export default function PhaseStatus({ phase, ingestionData, error, modelStatuses }: Props) {
+export default function PhaseStatus({ phase, ingestionData, error, modelStatuses, progressBarRef }: Props) {
+  const [progress, setProgress] = useState(0);
+  const startTimeRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (phase !== "ingesting") {
+      if (startTimeRef.current !== null) {
+        // Phase just left ingesting — snap to 100%
+        setProgress(100);
+        const timeout = setTimeout(() => {
+          startTimeRef.current = null;
+          setProgress(0);
+        }, 400);
+        return () => clearTimeout(timeout);
+      }
+      return;
+    }
+
+    // Phase is ingesting — start fake progress
+    startTimeRef.current = performance.now();
+    let rafId: number;
+
+    const tick = () => {
+      if (startTimeRef.current === null) return;
+      const elapsed = (performance.now() - startTimeRef.current) / 1000;
+      // 1 - e^(-t/6) curve, capped at 97%
+      const pct = Math.min((1 - Math.exp(-elapsed / 6)) * 100, 97);
+      setProgress(pct);
+      rafId = requestAnimationFrame(tick);
+    };
+
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  }, [phase]);
+
   if (phase === "idle") return null;
 
   return (
@@ -21,13 +59,22 @@ export default function PhaseStatus({ phase, ingestionData, error, modelStatuses
         </div>
       )}
 
-      {/* Ingesting */}
-      {phase === "ingesting" && (
-        <div className="flex items-center gap-3 px-4 py-3 bg-amber-400/5 border border-amber-400/10 rounded-lg">
-          <Spinner />
-          <span className="text-sm text-amber-300">
-            Gathering SEC data...
-          </span>
+      {/* Ingesting — progress bar */}
+      {(phase === "ingesting" || (progress === 100 && startTimeRef.current !== null)) && (
+        <div className="px-4 py-3 bg-sky-400/5 border border-sky-400/10 rounded-lg">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm text-sky-300">Gathering SEC data...</span>
+            <span className="text-xs text-sky-400/70 tabular-nums">
+              {Math.round(progress)}%
+            </span>
+          </div>
+          <div className="h-2 rounded-full bg-white/[0.06] overflow-hidden">
+            <div
+              ref={progressBarRef}
+              className="h-full rounded-full bg-sky-400/80 progress-bar-glow transition-[width] duration-150 ease-out"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
         </div>
       )}
 
@@ -63,11 +110,5 @@ export default function PhaseStatus({ phase, ingestionData, error, modelStatuses
         </div>
       )}
     </div>
-  );
-}
-
-function Spinner() {
-  return (
-    <div className="w-4 h-4 border-2 border-amber-400/30 border-t-amber-400 rounded-full animate-spin" />
   );
 }
