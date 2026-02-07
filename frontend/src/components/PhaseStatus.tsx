@@ -50,13 +50,16 @@ export default function PhaseStatus({ phase, ingestionData, error, modelStatuses
 
       {/* Done */}
       {phase === "done" && ingestionData && (
-        <div className="flex items-center gap-2 px-4 py-2 text-xs text-muted">
-          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-          <span>
-            Analysis complete — {ingestionData.chunks} chunks processed
-            {ingestionData.latest_filing_date &&
-              ` (filing: ${ingestionData.latest_filing_date})`}
-          </span>
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-2 px-4 py-2 text-xs text-muted">
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+            <span>
+              Analysis complete — {ingestionData.chunks} chunks processed
+              {ingestionData.latest_filing_date &&
+                ` (filing: ${ingestionData.latest_filing_date})`}
+            </span>
+          </div>
+          <LlmTracker modelStatuses={modelStatuses} />
         </div>
       )}
     </div>
