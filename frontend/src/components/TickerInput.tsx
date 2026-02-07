@@ -18,7 +18,7 @@ export default function TickerInput({ onSubmit, disabled }: Props) {
     getModels()
       .then((data) => {
         setAvailableModels(data.available_models);
-        setSelectedModels(data.available_models);
+        setSelectedModels([]);
       })
       .catch(() => setAvailableModels([]))
       .finally(() => setLoadingModels(false));
@@ -39,30 +39,6 @@ export default function TickerInput({ onSubmit, disabled }: Props) {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      {/* Ticker input */}
-      <div className="flex gap-3">
-        <div className="relative flex-1">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted font-mono text-sm">
-            $
-          </span>
-          <input
-            type="text"
-            value={ticker}
-            onChange={(e) => setTicker(e.target.value)}
-            placeholder="AAPL"
-            disabled={disabled}
-            className="w-full bg-white/[0.03] border border-white/[0.06] rounded-lg pl-7 pr-4 py-3 text-primary font-mono text-sm placeholder:text-muted/50 focus:outline-none focus:border-sky-300/30 transition-colors disabled:opacity-40"
-          />
-        </div>
-        <button
-          type="submit"
-          disabled={disabled || !ticker.trim() || selectedModels.length === 0}
-          className="px-6 py-3 bg-sky-300/10 border border-sky-300/20 rounded-lg text-sky-300 text-sm font-medium hover:bg-sky-300/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-        >
-          {disabled ? "Processing..." : "Evaluate"}
-        </button>
-      </div>
-
       {/* Model checkboxes */}
       <div className="flex flex-wrap gap-2">
         {loadingModels ? (
@@ -111,6 +87,30 @@ export default function TickerInput({ onSubmit, disabled }: Props) {
             </label>
           ))
         )}
+      </div>
+
+      {/* Ticker input */}
+      <div className="flex gap-3">
+        <div className="relative flex-1">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted font-mono text-sm">
+            $
+          </span>
+          <input
+            type="text"
+            value={ticker}
+            onChange={(e) => setTicker(e.target.value)}
+            placeholder="AAPL"
+            disabled={disabled}
+            className="w-full bg-white/[0.03] border border-white/[0.06] rounded-lg pl-7 pr-4 py-3 text-primary font-mono text-sm placeholder:text-muted/50 focus:outline-none focus:border-sky-300/30 transition-colors disabled:opacity-40"
+          />
+        </div>
+        <button
+          type="submit"
+          disabled={disabled || !ticker.trim() || selectedModels.length === 0}
+          className="px-6 py-3 bg-sky-300/10 border border-sky-300/20 rounded-lg text-sky-300 text-sm font-medium hover:bg-sky-300/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+        >
+          {disabled ? "Processing..." : "Evaluate"}
+        </button>
       </div>
     </form>
   );

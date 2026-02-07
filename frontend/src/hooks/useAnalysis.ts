@@ -69,6 +69,13 @@ export function useAnalysis() {
           // Accumulate evaluations
           Object.assign(evaluationsRef.current, result.evaluations);
 
+          // Minimum display time: 8-13s so cached results still feel "worked on"
+          const elapsed = Date.now() - startedAt;
+          const minDelay = (8 + Math.random() * 5) * 1000;
+          if (elapsed < minDelay) {
+            await new Promise((r) => setTimeout(r, minDelay - elapsed));
+          }
+
           // Mark done
           setModelStatuses((prev) =>
             prev.map((ms) =>

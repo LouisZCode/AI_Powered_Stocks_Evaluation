@@ -71,7 +71,7 @@ export default function AnalysisCard({ model, analysis }: Props) {
               className={`flex flex-col gap-1 p-2.5 rounded-lg border text-left transition-colors ${
                 isExpanded
                   ? "border-sky-300/20 bg-sky-300/5"
-                  : "border-white/[0.04] bg-white/[0.02] hover:bg-white/[0.04]"
+                  : "border-white/[0.08] bg-white/[0.08] hover:bg-white/[0.10]"
               }`}
             >
               <span className="text-[10px] uppercase tracking-wider text-muted">
@@ -89,7 +89,7 @@ export default function AnalysisCard({ model, analysis }: Props) {
 
       {/* Expanded reason */}
       {expanded && (
-        <div className="px-3 py-2.5 bg-white/[0.02] border border-white/[0.04] rounded-lg text-xs text-muted leading-relaxed animate-fadeIn">
+        <div className="px-3 py-2.5 bg-white/[0.08] border border-white/[0.08] rounded-lg text-xs text-muted leading-relaxed animate-fadeIn">
           <span className="text-primary font-medium">
             {METRIC_LABELS[expanded]}:
           </span>{" "}
@@ -98,7 +98,7 @@ export default function AnalysisCard({ model, analysis }: Props) {
       )}
 
       {/* Summary */}
-      <p className="text-xs text-muted leading-relaxed border-t border-white/[0.04] pt-3">
+      <p className="text-xs text-muted leading-relaxed border-t border-white/[0.08] pt-3">
         {analysis.overall_summary}
       </p>
     </div>
