@@ -52,3 +52,12 @@ export const METRICS = [
 ] as const;
 
 export type MetricKey = (typeof METRICS)[number];
+
+export type ModelRunStatus = "pending" | "running" | "done" | "error";
+export interface ModelStatus {
+  model: string;
+  status: ModelRunStatus;
+  startedAt: number | null;
+  elapsedMs: number | null;
+  error: string | null;
+}

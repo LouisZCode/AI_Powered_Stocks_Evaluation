@@ -9,7 +9,7 @@ import PhaseStatus from "@/components/PhaseStatus";
 import AnalysisResults from "@/components/AnalysisResults";
 
 export default function Home() {
-  const { phase, ingestionData, analysisData, error, run } = useAnalysis();
+  const { phase, ingestionData, analysisData, error, modelStatuses, run } = useAnalysis();
   const isLoading = phase === "ingesting" || phase === "analyzing";
 
   return (
@@ -18,7 +18,7 @@ export default function Home() {
       <GlassContainer>
         <Header phase={phase} />
         <TickerInput onSubmit={run} disabled={isLoading} />
-        <PhaseStatus phase={phase} ingestionData={ingestionData} error={error} />
+        <PhaseStatus phase={phase} ingestionData={ingestionData} error={error} modelStatuses={modelStatuses} />
         {phase === "done" && analysisData && (
           <AnalysisResults data={analysisData} />
         )}

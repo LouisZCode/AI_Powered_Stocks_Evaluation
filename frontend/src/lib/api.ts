@@ -34,3 +34,16 @@ export async function analyzeFinancials(
   if (!res.ok) throw new Error(`Analysis failed for ${ticker}`);
   return res.json();
 }
+
+export async function analyzeSingleModel(
+  ticker: string,
+  model: string
+): Promise<AnalysisResponse> {
+  const res = await fetch(`${API}/analisys/financials/${ticker}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ models: [model] }),
+  });
+  if (!res.ok) throw new Error(`Analysis failed for ${model}`);
+  return res.json();
+}

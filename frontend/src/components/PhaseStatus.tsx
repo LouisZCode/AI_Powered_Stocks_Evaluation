@@ -1,12 +1,14 @@
-import type { Phase, IngestionResponse } from "@/lib/types";
+import type { Phase, IngestionResponse, ModelStatus } from "@/lib/types";
+import LlmTracker from "@/components/LlmTracker";
 
 interface Props {
   phase: Phase;
   ingestionData: IngestionResponse | null;
   error: string | null;
+  modelStatuses: ModelStatus[];
 }
 
-export default function PhaseStatus({ phase, ingestionData, error }: Props) {
+export default function PhaseStatus({ phase, ingestionData, error, modelStatuses }: Props) {
   if (phase === "idle") return null;
 
   return (
@@ -42,12 +44,7 @@ export default function PhaseStatus({ phase, ingestionData, error }: Props) {
               </span>
             </div>
           )}
-          <div className="flex items-center gap-3 px-4 py-3 bg-amber-400/5 border border-amber-400/10 rounded-lg">
-            <Spinner />
-            <span className="text-sm text-amber-300">
-              LLMs analyzing financials...
-            </span>
-          </div>
+          <LlmTracker modelStatuses={modelStatuses} />
         </div>
       )}
 

@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import { ingestFinancials, analyzeFinancials } from "@/lib/api";
+import { useState, useCallback, useRef } from "react";
+import { ingestFinancials, analyzeSingleModel } from "@/lib/api";
 import type {
   Phase,
   IngestionResponse,
   AnalysisResponse,
+  ModelStatus,
+  FinancialAnalysis,
 } from "@/lib/types";
 
 export function useAnalysis() {
@@ -15,11 +17,26 @@ export function useAnalysis() {
   const [analysisData, setAnalysisData] =
     useState<AnalysisResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [modelStatuses, setModelStatuses] = useState<ModelStatus[]>([]);
+
+  const evaluationsRef = useRef<Record<string, FinancialAnalysis>>({});
 
   const run = useCallback(async (ticker: string, models: string[]) => {
     setError(null);
     setIngestionData(null);
     setAnalysisData(null);
+    evaluationsRef.current = {};
+
+    // Initialize all models as pending
+    setModelStatuses(
+      models.map((model) => ({
+        model,
+        status: "pending",
+        startedAt: null,
+        elapsedMs: null,
+        error: null,
+      }))
+    );
 
     // Phase 1: Ingestion
     setPhase("ingesting");
@@ -33,16 +50,65 @@ export function useAnalysis() {
         return;
       }
 
-      // Phase 2: Analysis
+      // Phase 2: Analysis — fire N parallel single-model requests
       setPhase("analyzing");
-      const analysis = await analyzeFinancials(ticker, models);
-      setAnalysisData(analysis);
-      setPhase("done");
+
+      const promises = models.map(async (model) => {
+        const startedAt = Date.now();
+
+        // Mark running
+        setModelStatuses((prev) =>
+          prev.map((ms) =>
+            ms.model === model ? { ...ms, status: "running", startedAt } : ms
+          )
+        );
+
+        try {
+          const result = await analyzeSingleModel(ticker, model);
+
+          // Accumulate evaluations
+          Object.assign(evaluationsRef.current, result.evaluations);
+
+          // Mark done
+          setModelStatuses((prev) =>
+            prev.map((ms) =>
+              ms.model === model
+                ? { ...ms, status: "done", elapsedMs: Date.now() - startedAt }
+                : ms
+            )
+          );
+        } catch (err) {
+          // Mark error
+          setModelStatuses((prev) =>
+            prev.map((ms) =>
+              ms.model === model
+                ? {
+                    ...ms,
+                    status: "error",
+                    elapsedMs: Date.now() - startedAt,
+                    error: err instanceof Error ? err.message : "Failed",
+                  }
+                : ms
+            )
+          );
+        }
+      });
+
+      await Promise.allSettled(promises);
+
+      // Merge all evaluations into analysisData
+      if (Object.keys(evaluationsRef.current).length > 0) {
+        setAnalysisData({ evaluations: { ...evaluationsRef.current } });
+        setPhase("done");
+      } else {
+        setError("All model analyses failed");
+        setPhase("error");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
       setPhase("error");
     }
   }, []);
 
-  return { phase, ingestionData, analysisData, error, run };
+  return { phase, ingestionData, analysisData, error, modelStatuses, run };
 }
