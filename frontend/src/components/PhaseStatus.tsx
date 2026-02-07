@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useEffect, useRef, type RefObject } from "react";
 import type { Phase, IngestionResponse, ModelStatus } from "@/lib/types";
 import LlmTracker from "@/components/LlmTracker";
 
@@ -13,39 +13,37 @@ interface Props {
 }
 
 export default function PhaseStatus({ phase, ingestionData, error, modelStatuses, progressBarRef }: Props) {
-  const [progress, setProgress] = useState(0);
-  const startTimeRef = useRef<number | null>(null);
+  const pctRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
-    if (phase !== "ingesting") {
-      if (startTimeRef.current !== null) {
-        // Phase just left ingesting — snap to 100%
-        setProgress(100);
-        const timeout = setTimeout(() => {
-          startTimeRef.current = null;
-          setProgress(0);
-        }, 400);
-        return () => clearTimeout(timeout);
-      }
-      return;
-    }
+    if (phase !== "ingesting") return;
 
-    // Phase is ingesting — start fake progress
-    startTimeRef.current = performance.now();
+    const startTime = performance.now();
     let rafId: number;
 
     const tick = () => {
-      if (startTimeRef.current === null) return;
-      const elapsed = (performance.now() - startTimeRef.current) / 1000;
-      // 1 - e^(-t/6) curve, capped at 97%
-      const pct = Math.min((1 - Math.exp(-elapsed / 6)) * 100, 97);
-      setProgress(pct);
+      const elapsed = (performance.now() - startTime) / 1000;
+      // Two-phase curve: fast ramp to ~80%, then crawls toward 97%
+      // fast: 82 * (1-e^(-t/5))  → ~28% at 2s, ~52% at 5s, ~71% at 10s
+      // slow: 15 * (1-e^(-t/25)) → adds ~1% at 2s, ~5% at 10s, crawls after
+      const fast = 82 * (1 - Math.exp(-elapsed / 5));
+      const slow = 15 * (1 - Math.exp(-elapsed / 25));
+      const pct = Math.min(fast + slow, 97);
+
+      // Direct DOM updates — no React re-render needed
+      if (progressBarRef.current) {
+        progressBarRef.current.style.width = `${pct}%`;
+      }
+      if (pctRef.current) {
+        pctRef.current.textContent = `${Math.round(pct)}%`;
+      }
+
       rafId = requestAnimationFrame(tick);
     };
 
     rafId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafId);
-  }, [phase]);
+  }, [phase, progressBarRef]);
 
   if (phase === "idle") return null;
 
@@ -60,19 +58,17 @@ export default function PhaseStatus({ phase, ingestionData, error, modelStatuses
       )}
 
       {/* Ingesting — progress bar */}
-      {(phase === "ingesting" || (progress === 100 && startTimeRef.current !== null)) && (
+      {phase === "ingesting" && (
         <div className="px-4 py-3 bg-sky-400/5 border border-sky-400/10 rounded-lg">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm text-sky-300">Gathering SEC data...</span>
-            <span className="text-xs text-sky-400/70 tabular-nums">
-              {Math.round(progress)}%
-            </span>
+            <span ref={pctRef} className="text-xs text-sky-400/70 tabular-nums">0%</span>
           </div>
           <div className="h-2 rounded-full bg-white/[0.06] overflow-hidden">
             <div
               ref={progressBarRef}
-              className="h-full rounded-full bg-sky-400/80 progress-bar-glow transition-[width] duration-150 ease-out"
-              style={{ width: `${progress}%` }}
+              className="h-full rounded-full bg-sky-400/80 progress-bar-glow"
+              style={{ width: "0%" }}
             />
           </div>
         </div>
