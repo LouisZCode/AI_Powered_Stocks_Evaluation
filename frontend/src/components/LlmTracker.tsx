@@ -1,4 +1,32 @@
+import { useState, useEffect } from "react";
 import type { ModelStatus } from "@/lib/types";
+
+const ANALYSIS_PHRASES = [
+  "parsing 10-K data",
+  "evaluating cash flow",
+  "checking balance sheet",
+  "analyzing revenue trends",
+  "reviewing debt ratios",
+  "calculating margins",
+  "assessing liquidity",
+  "examining P&L statement",
+  "processing financials",
+  "scanning footnotes",
+  "validating GAAP metrics",
+  "measuring profitability",
+  "tracking quarterly growth",
+  "investigating assets",
+  "reviewing liabilities",
+  "computing EPS trends",
+  "analyzing working capital",
+  "checking operational costs",
+  "evaluating free cash flow",
+  "examining shareholder equity",
+  "processing SEC filings",
+  "reviewing audit notes",
+  "calculating debt coverage",
+  "assessing financial health",
+];
 
 interface Props {
   modelStatuses: ModelStatus[];
@@ -12,7 +40,7 @@ export default function LlmTracker({ modelStatuses }: Props) {
       {modelStatuses.map((ms) => (
         <div
           key={ms.model}
-          className="flex items-center gap-3 px-4 py-3 bg-white/[0.03] border border-white/[0.06] rounded-lg animate-fadeIn overflow-hidden"
+          className="flex items-center gap-3 px-4 py-6 bg-white/[0.03] border border-white/[0.06] rounded-lg animate-fadeIn overflow-hidden"
         >
           <StatusIcon status={ms.status} />
           <div className="flex flex-col min-w-0">
@@ -77,7 +105,7 @@ function StatusLabel({
     case "pending":
       return <span className="text-xs text-white/30">waiting</span>;
     case "running":
-      return <span className="text-xs text-amber-400/80">analyzing...</span>;
+      return <RunningTextAnimation />;
     case "done":
       return (
         <span className="text-xs text-emerald-400/80">
@@ -91,4 +119,30 @@ function StatusLabel({
         </span>
       );
   }
+}
+
+function RunningTextAnimation() {
+  const [idx, setIdx] = useState(() =>
+    Math.floor(Math.random() * ANALYSIS_PHRASES.length)
+  );
+  const [speed] = useState(() => 1000 + Math.random() * 1000);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setIdx((prev) => (prev + 1) % ANALYSIS_PHRASES.length);
+    }, speed);
+    return () => clearInterval(id);
+  }, [speed]);
+
+  return (
+    <span className="text-xs text-white/50 block overflow-hidden h-4">
+      <span
+        key={idx}
+        className="block animate-textTicker"
+        style={{ animationDuration: `${speed}ms` }}
+      >
+        {ANALYSIS_PHRASES[idx]}
+      </span>
+    </span>
+  );
 }

@@ -27,7 +27,7 @@ AVAILABLE_MODELS = {
     "openai": "openai:gpt-5-mini",                                                                                                                                                                                                                   
     "claude": "anthropic:claude-haiku-4-5",                                                                                                                                                                                              
     "gemini": "google_genai:gemini-2.5-flash",
-    "mistral": "mistral:mistral-large-2512"                                                                                                                                                                                                         
+    "mistral": "mistral-large-2512"                                                                                                                                                                                                         
 }
 
 class FinancialInformation(TypedDict):

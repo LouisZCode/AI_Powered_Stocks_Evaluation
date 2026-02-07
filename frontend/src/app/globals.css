@@ -51,3 +51,14 @@ body {
 .animate-fadeIn {
   animation: fadeIn 0.4s ease-out;
 }
+
+/* Text ticker animation (LLM tracker running state) */
+@keyframes textTicker {
+  0%   { opacity: 0; transform: translateY(6px); }
+  10%  { opacity: 1; transform: translateY(0); }
+  80%  { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-6px); }
+}
+.animate-textTicker {
+  animation: textTicker 1.5s ease-in-out both;
+}
