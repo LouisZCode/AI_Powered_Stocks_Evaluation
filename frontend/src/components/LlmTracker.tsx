@@ -12,7 +12,7 @@ export default function LlmTracker({ modelStatuses }: Props) {
       {modelStatuses.map((ms) => (
         <div
           key={ms.model}
-          className="flex items-center gap-3 px-4 py-3 bg-white/[0.03] border border-white/[0.06] rounded-lg animate-fadeIn"
+          className="flex items-center gap-3 px-4 py-3 bg-white/[0.03] border border-white/[0.06] rounded-lg animate-fadeIn overflow-hidden"
         >
           <StatusIcon status={ms.status} />
           <div className="flex flex-col min-w-0">
@@ -86,7 +86,7 @@ function StatusLabel({
       );
     case "error":
       return (
-        <span className="text-xs text-red-400/80">
+        <span className="text-xs text-red-400/80 line-clamp-2">
           {error ?? "failed"}
         </span>
       );
