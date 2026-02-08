@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
-import dynamic from "next/dynamic";
 import Script from "next/script";
 import { useAnalysis } from "@/hooks/useAnalysis";
 import ParticleCanvas from "@/components/ParticleCanvas";
@@ -9,9 +8,8 @@ import Nav from "@/components/Nav";
 import GlassContainer from "@/components/GlassContainer";
 import Header from "@/components/Header";
 import TickerInput from "@/components/TickerInput";
-
-const PhaseStatus = dynamic(() => import("@/components/PhaseStatus"));
-const AnalysisResults = dynamic(() => import("@/components/AnalysisResults"));
+import PhaseStatus from "@/components/PhaseStatus";
+import AnalysisResults from "@/components/AnalysisResults";
 
 /* ── Quick-try ticker chips ── */
 const QUICK_TICKERS = ["AAPL", "MSFT", "NVDA", "TSLA", "GOOG"];
