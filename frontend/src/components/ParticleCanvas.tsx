@@ -27,16 +27,23 @@ interface FeederParticle {
 interface Props {
   phase: Phase;
   progressBarRef: RefObject<HTMLDivElement | null>;
+  particleCount?: number;
 }
 
-export default function ParticleCanvas({ phase, progressBarRef }: Props) {
+export default function ParticleCanvas({ phase, progressBarRef, particleCount = 1000 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mouseRef = useRef({ x: -1000, y: -1000 });
   const phaseRef = useRef(phase);
+  const targetCountRef = useRef(particleCount);
+  const activeCountRef = useRef(particleCount);
 
   useEffect(() => {
     phaseRef.current = phase;
   }, [phase]);
+
+  useEffect(() => {
+    targetCountRef.current = particleCount;
+  }, [particleCount]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -119,13 +126,19 @@ export default function ParticleCanvas({ phase, progressBarRef }: Props) {
 
       // Fade overlay instead of clearRect — leaves ghost trails
       // Lower alpha = longer trails; analyzing gets more dramatic streaks
-      const fadeAlpha = isDone ? 0.35 : isAnalyzing ? 0.08 : 0.12;
+      const fadeAlpha = isAnalyzing ? 0.08 : 0.12;
       ctx.fillStyle = `rgba(5, 10, 18, ${fadeAlpha})`;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       const mouse = mouseRef.current;
 
+      // Lerp active particle count toward target
+      const target = targetCountRef.current;
+      const current = activeCountRef.current;
+      activeCountRef.current = current + (target - current) * 0.05;
+      const drawCount = Math.min(Math.round(activeCountRef.current), particles.length);
+
       // --- Background particles ---
-      for (let i = 0; i < particles.length; i++) {
+      for (let i = 0; i < drawCount; i++) {
         const p = particles[i];
         p.phase += 0.01;
         p.x += p.vx * speed;
@@ -168,9 +181,8 @@ export default function ParticleCanvas({ phase, progressBarRef }: Props) {
         ctx.fillStyle = color;
         ctx.fill();
 
-        // Connections (skip when done to reduce visual noise)
-        if (isDone) continue;
-        for (let j = i + 1; j < particles.length; j++) {
+        // Connections
+        for (let j = i + 1; j < drawCount; j++) {
           const q = particles[j];
           const cdx = p.x - q.x;
           const cdy = p.y - q.y;

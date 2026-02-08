@@ -2,19 +2,30 @@
 
 import Link from "next/link";
 
-export default function Nav() {
+interface Props {
+  onLogoClick?: () => void;
+}
+
+export default function Nav({ onLogoClick }: Props) {
   return (
     <nav
       className="flex w-full items-center justify-between px-5 md:px-8 lg:px-12 py-6"
     >
       <div className="flex items-center gap-6">
-        <Link
-          href="/"
-          className="font-[800] uppercase tracking-[2px] text-white"
-          style={{ fontSize: 18, fontFamily: "var(--font-sans)" }}
+        <button
+          onClick={(e) => {
+            if (onLogoClick) {
+              e.preventDefault();
+              onLogoClick();
+            } else {
+              window.location.href = "/";
+            }
+          }}
+          className="font-[800] uppercase tracking-[2px] text-white cursor-pointer"
+          style={{ fontSize: 18, fontFamily: "var(--font-sans)", background: "none", border: "none", padding: 0 }}
         >
           Agora
-        </Link>
+        </button>
         <div className="hidden md:flex items-center gap-5">
           {["Personal", "Business", "Company"].map((item) => (
             <a

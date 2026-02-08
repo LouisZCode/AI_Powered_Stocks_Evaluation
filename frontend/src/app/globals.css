@@ -99,6 +99,33 @@ body {
   animation: cardEntrance 0.5s ease-out forwards;
 }
 
+/* ── Page transition animations ── */
+
+@keyframes fadeOutUp {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(-120px); }
+}
+.animate-fadeOutUp {
+  animation: fadeOutUp 0.5s ease-in forwards;
+}
+
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+.animate-fadeOut {
+  animation: fadeOut 0.4s ease-in forwards;
+}
+
+@keyframes analyzeEnter {
+  from { opacity: 0; transform: translateY(30px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-analyzeEnter {
+  opacity: 0;
+  animation: analyzeEnter 0.5s ease-out 0.25s forwards;
+}
+
 /* ── Homepage animations ── */
 
 @keyframes fadeInUp {

@@ -117,5 +117,14 @@ export function useAnalysis() {
     }
   }, []);
 
-  return { phase, ingestionData, analysisData, error, modelStatuses, run };
+  const reset = useCallback(() => {
+    setPhase("idle");
+    setIngestionData(null);
+    setAnalysisData(null);
+    setError(null);
+    setModelStatuses([]);
+    evaluationsRef.current = {};
+  }, []);
+
+  return { phase, ingestionData, analysisData, error, modelStatuses, run, reset };
 }
