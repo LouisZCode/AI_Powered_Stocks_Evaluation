@@ -11,7 +11,7 @@ export default function Header({ phase }: Props) {
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-3">
         <h1 className="text-lg font-light tracking-wider text-primary">
-          THE KINETIC LEDGER
+          Agora Investing
         </h1>
         <span className="text-xs font-mono text-muted">v2.0</span>
       </div>

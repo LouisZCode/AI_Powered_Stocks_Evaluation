@@ -21,6 +21,7 @@ interface FeederParticle {
   opacity: number;
   life: number;
   absorbed: boolean;
+  targetSide: "left" | "right";
 }
 
 interface Props {
@@ -100,6 +101,7 @@ export default function ParticleCanvas({ phase, progressBarRef }: Props) {
         opacity: 0.7 + Math.random() * 0.3,
         life: 0,
         absorbed: false,
+        targetSide: x < w / 2 ? "left" : "right",
       });
     }
 
@@ -194,13 +196,13 @@ export default function ParticleCanvas({ phase, progressBarRef }: Props) {
         }
       }
 
-      // Get bar position for attraction target
-      let barCx = canvas.width / 2;
-      let barCy = canvas.height / 2;
+      // Get bar right edge as attraction target
+      let barRightX = canvas.width * 0.75;
+      let barY = canvas.height / 2;
       if (progressBarRef.current) {
         const rect = progressBarRef.current.getBoundingClientRect();
-        barCx = rect.left + rect.width / 2;
-        barCy = rect.top + rect.height / 2;
+        barRightX = rect.right;
+        barY = rect.top + rect.height / 2;
       }
 
       // Update and draw feeders
@@ -208,9 +210,9 @@ export default function ParticleCanvas({ phase, progressBarRef }: Props) {
         const f = feeders[i];
         f.life += dt;
 
-        // Attract toward progress bar
-        const dx = barCx - f.x;
-        const dy = barCy - f.y;
+        // Attract toward right edge of progress bar
+        const dx = barRightX - f.x;
+        const dy = barY - f.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
 
         if (dist > 0) {
@@ -241,7 +243,7 @@ export default function ParticleCanvas({ phase, progressBarRef }: Props) {
         // Draw feeder: glow circle → core → velocity trail
         // Glow
         ctx.beginPath();
-        ctx.arc(f.x, f.y, f.size * 4, 0, Math.PI * 2);
+        ctx.arc(f.x, f.y, f.size * 2, 0, Math.PI * 2);
         ctx.fillStyle = `rgba(186, 230, 253, ${0.3 * f.opacity})`;
         ctx.fill();
 

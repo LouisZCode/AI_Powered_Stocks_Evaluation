@@ -6,10 +6,11 @@ import { getModels } from "@/lib/api";
 interface Props {
   onSubmit: (ticker: string, models: string[]) => void;
   disabled: boolean;
+  initialTicker?: string;
 }
 
-export default function TickerInput({ onSubmit, disabled }: Props) {
-  const [ticker, setTicker] = useState("");
+export default function TickerInput({ onSubmit, disabled, initialTicker = "" }: Props) {
+  const [ticker, setTicker] = useState(initialTicker);
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [selectedModels, setSelectedModels] = useState<string[]>([]);
   const [loadingModels, setLoadingModels] = useState(true);

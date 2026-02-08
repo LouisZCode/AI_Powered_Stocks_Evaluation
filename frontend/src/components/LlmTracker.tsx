@@ -1,5 +1,13 @@
 import { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
 import type { ModelStatus } from "@/lib/types";
+
+const DotLottieReact = dynamic(
+  () => import("@lottiefiles/dotlottie-react").then((m) => m.DotLottieReact),
+  { ssr: false }
+);
+
+const CARD_HUES = [0, 45, 90, 160, 210, 270, 320];
 
 const ANALYSIS_PHRASES = [
   "parsing 10-K data",
@@ -37,12 +45,12 @@ export default function LlmTracker({ modelStatuses }: Props) {
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-      {modelStatuses.map((ms) => (
+      {modelStatuses.map((ms, idx) => (
         <div
           key={ms.model}
           className="flex items-center gap-3 px-3 md:px-4 py-4 md:py-6 bg-white/[0.10] border border-white/[0.10] rounded-lg animate-fadeIn overflow-hidden"
         >
-          <StatusIcon status={ms.status} />
+          <StatusIcon status={ms.status} index={idx} />
           <div className="flex flex-col min-w-0">
             <span className="text-sm text-white/90 truncate capitalize">
               {ms.model}
@@ -55,7 +63,9 @@ export default function LlmTracker({ modelStatuses }: Props) {
   );
 }
 
-function StatusIcon({ status }: { status: ModelStatus["status"] }) {
+function StatusIcon({ status, index }: { status: ModelStatus["status"]; index: number }) {
+  const hue = CARD_HUES[index % CARD_HUES.length];
+
   switch (status) {
     case "pending":
       return (
@@ -63,7 +73,17 @@ function StatusIcon({ status }: { status: ModelStatus["status"] }) {
       );
     case "running":
       return (
-        <div className="w-4 h-4 border-2 border-amber-400/30 border-t-amber-400 rounded-full animate-spin flex-shrink-0" />
+        <div
+          className="w-5 h-5 flex-shrink-0"
+          style={{ filter: `hue-rotate(${hue}deg)` }}
+        >
+          <DotLottieReact
+            src="/animations/LoadingCircle.lottie"
+            loop
+            autoplay
+            style={{ width: "100%", height: "100%" }}
+          />
+        </div>
       );
     case "done":
       return (
