@@ -103,7 +103,7 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
       <ParticleCanvas
         phase={phase}
         progressBarRef={progressBarRef}
-        particleCount={phase === "ingesting" || phase === "analyzing" ? 1000 : 120}
+        particleCount={phase === "ingesting" || phase === "analyzing" ? 800 : 250}
       />
 
       <div className="relative z-10">
