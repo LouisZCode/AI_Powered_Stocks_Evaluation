@@ -80,7 +80,7 @@ export default function HomePage() {
 
         {/* ── Hero ── */}
         <section
-          className="mx-auto flex w-full flex-col items-center text-center px-5 md:px-8 lg:px-12 pt-16 md:pt-24 pb-10 md:pb-15"
+          className="ml-auto flex flex-1 w-full lg:w-[60%] flex-col items-center lg:items-start justify-center text-center lg:text-left px-5 md:px-8 lg:px-12 lg:pr-16 pb-10 md:pb-15"
           style={{ maxWidth: 820 }}
         >
           {/* Badge */}
@@ -181,6 +181,7 @@ export default function HomePage() {
                 $
               </span>
               <input
+                id="hero-ticker"
                 type="text"
                 placeholder="Enter ticker symbol..."
                 className="flex-1 bg-transparent outline-none placeholder:text-white/25"
@@ -235,7 +236,8 @@ export default function HomePage() {
                   key={t}
                   type="button"
                   onClick={() => {
-                    window.location.href = `/analyze?ticker=${t}`;
+                    const input = document.querySelector<HTMLInputElement>("#hero-ticker");
+                    if (input) { input.value = t; input.focus(); }
                   }}
                   className="cursor-pointer transition-colors duration-200 hover:text-[#3dd8e0]"
                   style={{
