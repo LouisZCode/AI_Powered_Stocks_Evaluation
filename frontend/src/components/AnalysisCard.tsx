@@ -7,6 +7,7 @@ import { METRICS } from "@/lib/types";
 interface Props {
   model: string;
   analysis: FinancialAnalysis;
+  index: number;
 }
 
 const METRIC_LABELS: Record<MetricKey, string> = {
@@ -22,11 +23,11 @@ const METRIC_LABELS: Record<MetricKey, string> = {
 
 function ratingColor(rating: string) {
   const r = rating.toLowerCase();
-  if (r === "excellent") return "text-emerald-400 bg-emerald-400/10 border-emerald-400/20";
-  if (r === "good") return "text-emerald-300 bg-emerald-300/10 border-emerald-300/20";
-  if (r === "neutral") return "text-amber-400 bg-amber-400/10 border-amber-400/20";
-  if (r === "bad") return "text-red-400 bg-red-400/10 border-red-400/20";
-  if (r === "horrible") return "text-red-500 bg-red-500/10 border-red-500/20";
+  if (r === "excellent") return "text-emerald-400 bg-emerald-400/15 border-emerald-400/25";
+  if (r === "good") return "text-emerald-300 bg-emerald-300/15 border-emerald-300/25";
+  if (r === "neutral") return "text-blue-300 bg-blue-400/15 border-blue-400/25";
+  if (r === "bad") return "text-red-400 bg-red-400/15 border-red-400/25";
+  if (r === "horrible") return "text-red-500 bg-red-500/15 border-red-500/25";
   return "text-muted bg-white/5 border-white/10";
 }
 
@@ -39,22 +40,24 @@ function strengthColor(strength: string) {
   return "text-red-400";
 }
 
-export default function AnalysisCard({ model, analysis }: Props) {
+export default function AnalysisCard({ model, analysis, index }: Props) {
   const [expanded, setExpanded] = useState<MetricKey | null>(null);
 
   return (
-    <div className="glass rounded-xl p-3.5 md:p-5 flex flex-col gap-4">
+    <div
+      className="glass-card rounded-xl p-3.5 md:p-5 flex flex-col gap-4 animate-cardEntrance"
+      style={{ animationDelay: `${index * 200}ms` }}
+    >
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-sky-300" />
           <span className="font-mono text-sm text-primary">{model}</span>
         </div>
-        <span
-          className={`font-mono text-xs font-semibold ${strengthColor(analysis.financial_strenght)}`}
-        >
-          {analysis.financial_strenght}
-        </span>
+        <div className={`font-mono font-bold ${strengthColor(analysis.financial_strenght)}`}>
+          <span className="text-lg">{analysis.financial_strenght.split("/")[0]}</span>
+          <span className="text-xs text-muted/60">/{analysis.financial_strenght.split("/")[1]}</span>
+        </div>
       </div>
 
       {/* Metrics grid */}
@@ -78,9 +81,10 @@ export default function AnalysisCard({ model, analysis }: Props) {
                 {METRIC_LABELS[key]}
               </span>
               <span
-                className={`text-xs font-medium px-1.5 py-0.5 rounded border w-fit ${ratingColor(value)}`}
+                className={`text-xs font-medium px-1.5 py-0.5 rounded border w-fit ${value.length > 15 ? "text-muted bg-white/5 border-white/10" : ratingColor(value)}`}
+                title={value.length > 15 ? value : undefined}
               >
-                {value}
+                {value.length > 15 ? "N/A" : value}
               </span>
             </button>
           );
@@ -89,7 +93,7 @@ export default function AnalysisCard({ model, analysis }: Props) {
 
       {/* Expanded reason */}
       {expanded && (
-        <div className="px-3 py-2.5 bg-white/[0.08] border border-white/[0.08] rounded-lg text-xs text-muted leading-relaxed animate-fadeIn">
+        <div className="px-3 py-2.5 bg-white/[0.08] border border-white/[0.08] rounded-lg text-sm text-white leading-relaxed animate-fadeIn">
           <span className="text-primary font-medium">
             {METRIC_LABELS[expanded]}:
           </span>{" "}
@@ -98,9 +102,11 @@ export default function AnalysisCard({ model, analysis }: Props) {
       )}
 
       {/* Summary */}
-      <p className="text-xs text-muted leading-relaxed border-t border-white/[0.08] pt-3">
-        {analysis.overall_summary}
-      </p>
+      <div className="border-t border-white/[0.08] pt-3">
+        <p className="text-sm text-white leading-[1.7] pl-3 border-l-2 border-sky-400/40">
+          {analysis.overall_summary}
+        </p>
+      </div>
     </div>
   );
 }

@@ -24,10 +24,10 @@ export default function PhaseStatus({ phase, ingestionData, error, modelStatuses
     const tick = () => {
       const elapsed = (performance.now() - startTime) / 1000;
       // Two-phase curve: fast ramp to ~80%, then crawls toward 97%
-      // fast: 82 * (1-e^(-t/5))  → ~28% at 2s, ~52% at 5s, ~71% at 10s
-      // slow: 15 * (1-e^(-t/25)) → adds ~1% at 2s, ~5% at 10s, crawls after
-      const fast = 82 * (1 - Math.exp(-elapsed / 5));
-      const slow = 15 * (1 - Math.exp(-elapsed / 25));
+      // fast: 82 * (1-e^(-t/10)) → ~16% at 2s, ~33% at 5s, ~52% at 10s
+      // slow: 15 * (1-e^(-t/50)) → adds ~0.6% at 2s, ~3% at 10s, crawls after
+      const fast = 82 * (1 - Math.exp(-elapsed / 10));
+      const slow = 15 * (1 - Math.exp(-elapsed / 50));
       const pct = Math.min(fast + slow, 97);
 
       // Direct DOM updates — no React re-render needed

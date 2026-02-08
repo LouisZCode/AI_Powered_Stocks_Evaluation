@@ -20,8 +20,8 @@ export default function AnalysisResults({ data }: Props) {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {entries.map(([model, analysis]) => (
-          <AnalysisCard key={model} model={model} analysis={analysis} />
+        {entries.map(([model, analysis], idx) => (
+          <AnalysisCard key={model} model={model} analysis={analysis} index={idx} />
         ))}
       </div>
 

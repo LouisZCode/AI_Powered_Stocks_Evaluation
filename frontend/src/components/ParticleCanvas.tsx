@@ -114,11 +114,12 @@ export default function ParticleCanvas({ phase, progressBarRef }: Props) {
       const currentPhase = phaseRef.current;
       const isAnalyzing = currentPhase === "analyzing";
       const isIngesting = currentPhase === "ingesting";
-      const speed = isAnalyzing ? 3 : 1;
+      const isDone = currentPhase === "done";
+      const speed = isDone ? 0.15 : isAnalyzing ? 3 : 1;
 
       // Fade overlay instead of clearRect — leaves ghost trails
       // Lower alpha = longer trails; analyzing gets more dramatic streaks
-      const fadeAlpha = isAnalyzing ? 0.08 : 0.12;
+      const fadeAlpha = isDone ? 0.35 : isAnalyzing ? 0.08 : 0.12;
       ctx.fillStyle = `rgba(5, 10, 18, ${fadeAlpha})`;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       const mouse = mouseRef.current;
@@ -167,7 +168,8 @@ export default function ParticleCanvas({ phase, progressBarRef }: Props) {
         ctx.fillStyle = color;
         ctx.fill();
 
-        // Connections
+        // Connections (skip when done to reduce visual noise)
+        if (isDone) continue;
         for (let j = i + 1; j < particles.length; j++) {
           const q = particles[j];
           const cdx = p.x - q.x;

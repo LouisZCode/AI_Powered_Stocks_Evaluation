@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Phase } from "@/lib/types";
 
 interface Props {
@@ -10,9 +11,9 @@ export default function Header({ phase }: Props) {
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-3">
-        <h1 className="text-lg font-light tracking-wider text-primary">
+        <Link href="/" className="text-lg font-light tracking-wider text-primary">
           Agora Investing
-        </h1>
+        </Link>
         <span className="text-xs font-mono text-muted">v2.0</span>
       </div>
       <div className="flex items-center gap-2">

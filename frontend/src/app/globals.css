@@ -25,6 +25,15 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
+/* Glass card — stronger surface for result cards */
+.glass-card {
+  background: rgba(8, 12, 20, 0.85);
+  backdrop-filter: blur(32px) saturate(180%);
+  -webkit-backdrop-filter: blur(32px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar {
   width: 4px;
@@ -71,6 +80,23 @@ body {
 }
 .progress-bar-glow {
   animation: progressGlow 2s ease-in-out infinite;
+}
+
+/* Card entrance animation (staggered per card) */
+@keyframes cardEntrance {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-cardEntrance {
+  opacity: 0;
+  animation: cardEntrance 0.5s ease-out forwards;
 }
 
 /* ── Homepage animations ── */

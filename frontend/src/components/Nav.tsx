@@ -8,12 +8,13 @@ export default function Nav() {
       className="flex w-full items-center justify-between px-5 md:px-8 lg:px-12 py-6"
     >
       <div className="flex items-center gap-6">
-        <span
+        <Link
+          href="/"
           className="font-[800] uppercase tracking-[2px] text-white"
           style={{ fontSize: 18, fontFamily: "var(--font-sans)" }}
         >
           Agora
-        </span>
+        </Link>
         <div className="hidden md:flex items-center gap-5">
           {["Personal", "Business", "Company"].map((item) => (
             <a
