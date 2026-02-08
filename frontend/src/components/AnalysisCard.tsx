@@ -43,7 +43,7 @@ export default function AnalysisCard({ model, analysis }: Props) {
   const [expanded, setExpanded] = useState<MetricKey | null>(null);
 
   return (
-    <div className="glass rounded-xl p-5 flex flex-col gap-4">
+    <div className="glass rounded-xl p-3.5 md:p-5 flex flex-col gap-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -74,7 +74,7 @@ export default function AnalysisCard({ model, analysis }: Props) {
                   : "border-white/[0.08] bg-white/[0.08] hover:bg-white/[0.10]"
               }`}
             >
-              <span className="text-[10px] uppercase tracking-wider text-muted">
+              <span className="text-[11px] md:text-[10px] uppercase tracking-wider text-muted">
                 {METRIC_LABELS[key]}
               </span>
               <span

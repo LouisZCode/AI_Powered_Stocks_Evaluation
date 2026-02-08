@@ -50,8 +50,7 @@ export default function HomePage() {
       >
         {/* ── Nav ── */}
         <nav
-          className="flex w-full items-center justify-between"
-          style={{ padding: "24px 48px" }}
+          className="flex w-full items-center justify-between px-5 md:px-8 lg:px-12 py-6"
         >
           <span
             className="font-[800] uppercase tracking-[2px] text-white"
@@ -81,8 +80,8 @@ export default function HomePage() {
 
         {/* ── Hero ── */}
         <section
-          className="mx-auto flex w-full flex-col items-center text-center"
-          style={{ paddingTop: 100, paddingLeft: 48, paddingRight: 48, paddingBottom: 60, maxWidth: 820 }}
+          className="mx-auto flex w-full flex-col items-center text-center px-5 md:px-8 lg:px-12 pt-16 md:pt-24 pb-10 md:pb-15"
+          style={{ maxWidth: 820 }}
         >
           {/* Badge */}
           <div
@@ -112,17 +111,16 @@ export default function HomePage() {
 
           {/* Headline */}
           <h1
-            className="animate-fadeInUp delay-0 font-[700] text-white"
-            style={{ fontSize: 58, lineHeight: 1.1 }}
+            className="animate-fadeInUp delay-0 font-[700] text-white text-[32px] md:text-[46px] lg:text-[58px]"
+            style={{ lineHeight: 1.1 }}
           >
             Financial Intelligence,
           </h1>
 
           {/* Subhead */}
           <h2
-            className="animate-fadeInUp delay-100 font-[300]"
+            className="animate-fadeInUp delay-100 font-[300] text-[32px] md:text-[46px] lg:text-[58px]"
             style={{
-              fontSize: 58,
               lineHeight: 1.1,
               marginTop: 8,
               background: "linear-gradient(135deg, #3dd8e0, #7dd3fc)",
@@ -136,9 +134,8 @@ export default function HomePage() {
 
           {/* Description */}
           <p
-            className="animate-fadeInUp delay-200 font-[300]"
+            className="animate-fadeInUp delay-200 font-[300] text-[15px] md:text-[17px]"
             style={{
-              fontSize: 17,
               lineHeight: 1.7,
               marginTop: 28,
               color: "rgba(255,255,255,0.45)",
@@ -267,8 +264,8 @@ export default function HomePage() {
         }}
       >
         <div
-          className="mx-auto w-full"
-          style={{ paddingTop: 80, paddingBottom: 40, paddingLeft: 48, paddingRight: 48, maxWidth: 820 }}
+          className="mx-auto w-full px-5 md:px-8 lg:px-12 pt-12 md:pt-20 pb-8 md:pb-10"
+          style={{ maxWidth: 820 }}
         >
           <p
             className="text-center"
@@ -285,11 +282,7 @@ export default function HomePage() {
           </p>
 
           <div
-            className="grid"
-            style={{
-              gridTemplateColumns: "repeat(4, 1fr)",
-              gap: 12,
-            }}
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3"
           >
             {STEPS.map((step) => (
               <div
@@ -331,13 +324,7 @@ export default function HomePage() {
 
         {/* ── Trust Bar ── */}
         <div
-          className="mx-auto flex items-center justify-center"
-          style={{
-            padding: "32px 48px",
-            marginTop: 20,
-            paddingBottom: 60,
-            gap: 32,
-          }}
+          className="mx-auto flex flex-wrap items-center justify-center gap-4 md:gap-8 px-5 md:px-8 lg:px-12 pt-6 md:pt-8 pb-10 md:pb-15 mt-2 md:mt-5"
         >
           {TRUST_ITEMS.map((item) => (
             <span
