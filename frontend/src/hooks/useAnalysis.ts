@@ -22,6 +22,8 @@ export function useAnalysis() {
   const evaluationsRef = useRef<Record<string, FinancialAnalysis>>({});
 
   const run = useCallback(async (ticker: string, models: string[]) => {
+    const sessionId = crypto.randomUUID().replace(/-/g, "").slice(0, 8);
+
     setError(null);
     setIngestionData(null);
     setAnalysisData(null);
@@ -64,7 +66,7 @@ export function useAnalysis() {
         );
 
         try {
-          const result = await analyzeSingleModel(ticker, model);
+          const result = await analyzeSingleModel(ticker, model, sessionId);
 
           // Accumulate evaluations
           Object.assign(evaluationsRef.current, result.evaluations);

@@ -14,16 +14,16 @@ import time
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, func
 
-from logs import start_new_log, log_llm_conversation, log_llm_timing, log_llm_start, log_llm_finish, log_cached_result, log_llm_retry, log_llm_error, log_data_source
+from logs import ensure_log, log_llm_conversation, log_llm_timing, log_llm_start, log_llm_finish, log_cached_result, log_llm_retry, log_llm_error, log_data_source
 router = APIRouter()
 
 class EvalRequest(BaseModel):
     models : list[str]
 
 @router.post("/analisys/financials/{ticker_symbol}")
-async def evaluate_financials(ticker_symbol : str, request : EvalRequest, db : Session = Depends(get_db)):
+async def evaluate_financials(ticker_symbol : str, request : EvalRequest, session_id: str = None, db : Session = Depends(get_db)):
     # Start log
-    start_new_log(ticker_symbol)
+    log_file = ensure_log(ticker_symbol, session_id)
 
     # 1. Get latest filing date for cache key and determine data source
     latest_filing = db.query(func.max(DocumentChunk.filing_date)).filter_by(ticker=ticker_symbol).scalar()
@@ -35,7 +35,7 @@ async def evaluate_financials(ticker_symbol : str, request : EvalRequest, db : S
         latest_filing = db.query(func.max(FinancialStatements.latest_filing_date)).filter_by(ticker=ticker_symbol).scalar()
         data_source = "Yahoo" if latest_filing is not None else "None"
 
-    log_data_source(ticker_symbol, data_source)
+    log_data_source(ticker_symbol, log_file, data_source)
 
     # 2. Check cache: which models already analyzed this ticker with current filing?
     cached = db.query(LLMFinancialAnalysis).filter(
@@ -51,7 +51,7 @@ async def evaluate_financials(ticker_symbol : str, request : EvalRequest, db : S
 
     # Log cached results
     for model_name, analysis in cached_results.items():
-        log_cached_result(model_name, analysis)
+        log_cached_result(model_name, log_file, analysis)
 
     # 3. Fetch structured financials once (shared by all models)
     financial_context = await asyncio.to_thread(get_cached_financials, ticker_symbol, db, latest_filing)
@@ -62,7 +62,7 @@ async def evaluate_financials(ticker_symbol : str, request : EvalRequest, db : S
 
     # 4. Run LLMs only for models not in cache
     MAX_ATTEMPTS = 3
-    TIMEOUT_SECONDS = 30
+    TIMEOUT_SECONDS = 120
     BACKOFF_SECONDS = [2, 4]  # wait times between retries
 
     async def run_model(model_name: str):
@@ -75,16 +75,16 @@ async def evaluate_financials(ticker_symbol : str, request : EvalRequest, db : S
         last_error = None
         for attempt in range(1, MAX_ATTEMPTS + 1):
             try:
-                log_llm_start(model_name)
+                log_llm_start(model_name, log_file)
                 start_time = time.time()
                 response = await asyncio.wait_for(
                     agent.ainvoke({"messages": {"role": "user", "content": user_message}}),
                     timeout=TIMEOUT_SECONDS,
                 )
                 elapsed = time.time() - start_time
-                log_llm_finish(model_name, elapsed)
-                log_llm_conversation(model_name, response)
-                log_llm_timing(elapsed)
+                log_llm_finish(model_name, log_file, elapsed)
+                log_llm_conversation(model_name, log_file, response)
+                log_llm_timing(log_file, elapsed)
 
                 return model_name, response["structured_response"]
 
@@ -96,12 +96,12 @@ async def evaluate_financials(ticker_symbol : str, request : EvalRequest, db : S
             # If retries remain, log and wait
             if attempt < MAX_ATTEMPTS:
                 wait = BACKOFF_SECONDS[attempt - 1]
-                log_llm_retry(model_name, attempt, MAX_ATTEMPTS, last_error, wait)
+                log_llm_retry(model_name, log_file, attempt, MAX_ATTEMPTS, last_error, wait)
                 await asyncio.sleep(wait)
 
         # All retries exhausted
         error_detail = f"{model_name} failed after {MAX_ATTEMPTS} attempts: {last_error}"
-        log_llm_error(model_name, last_error)
+        log_llm_error(model_name, log_file, last_error)
         raise HTTPException(status_code=504, detail=error_detail)
 
     tasks = [run_model(m) for m in models_to_run]

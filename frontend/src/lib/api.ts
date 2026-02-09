@@ -24,9 +24,11 @@ export async function ingestFinancials(
 
 export async function analyzeFinancials(
   ticker: string,
-  models: string[]
+  models: string[],
+  sessionId?: string
 ): Promise<AnalysisResponse> {
-  const res = await fetch(`${API}/analisys/financials/${ticker}`, {
+  const params = sessionId ? `?session_id=${sessionId}` : "";
+  const res = await fetch(`${API}/analisys/financials/${ticker}${params}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ models }),
@@ -37,9 +39,11 @@ export async function analyzeFinancials(
 
 export async function analyzeSingleModel(
   ticker: string,
-  model: string
+  model: string,
+  sessionId?: string
 ): Promise<AnalysisResponse> {
-  const res = await fetch(`${API}/analisys/financials/${ticker}`, {
+  const params = sessionId ? `?session_id=${sessionId}` : "";
+  const res = await fetch(`${API}/analisys/financials/${ticker}${params}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ models: [model] }),

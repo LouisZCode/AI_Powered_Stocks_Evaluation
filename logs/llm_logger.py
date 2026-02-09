@@ -2,7 +2,7 @@
 Logger for capturing full LLM conversations including tool calls and responses.
 
 You can find:
-start_new_log, log_llm_conversation, log_debate_check, log_llm_timing, log_cached_result
+ensure_log, log_llm_conversation, log_debate_check, log_llm_timing, log_cached_result
 """
 
 import os
@@ -10,131 +10,94 @@ from datetime import datetime
 
 LOGS_FOLDER = "logs/conversations"
 
-# Track current log file for a session
-_current_log_file = None
 
-
-def start_new_log(ticker: str) -> str:
+def ensure_log(ticker: str, session_id: str = None) -> str:
     """
-    Creates a new log file for a ticker research session.
-    Returns the log file path.
+    Returns the log file path for a ticker on today's date.
+    Creates the file with a header if it doesn't exist yet.
+    When session_id is provided, each "Evaluate" click gets its own log file.
     """
-    global _current_log_file
-
     os.makedirs(LOGS_FOLDER, exist_ok=True)
 
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
-    filename = f"{timestamp}_{ticker}.log"
+    date_str = datetime.now().strftime("%Y-%m-%d")
+
+    if session_id:
+        filename = f"{ticker}_{date_str}_{session_id}.log"
+    else:
+        filename = f"{ticker}_{date_str}.log"
+
     filepath = os.path.join(LOGS_FOLDER, filename)
 
-    _current_log_file = filepath
-
-    # Write header
-    with open(filepath, "w", encoding="utf-8") as f:
-        f.write(f"{'='*60}\n")
-        f.write(f"  {ticker} Research - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-        f.write(f"{'='*60}\n\n")
+    if not os.path.exists(filepath):
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(f"{'='*60}\n")
+            f.write(f"  {ticker} Research - {date_str}\n")
+            if session_id:
+                f.write(f"  Session: {session_id}\n")
+            f.write(f"{'='*60}\n\n")
 
     return filepath
 
 
-def log_data_source(ticker: str, source: str, log_file: str = None):
+def log_data_source(ticker: str, log_file: str, source: str):
     """Logs which data pipeline provided the financial data (SEC, Yahoo, Finnhub, Database)."""
-    filepath = log_file or _current_log_file
-    if not filepath:
-        print(f"Warning: No log file set. Call start_new_log() first.")
-        return
     timestamp = datetime.now().strftime("%H:%M:%S")
     msg = f"[{timestamp}] {ticker} → Financial data source: {source.upper()}"
-    with open(filepath, "a", encoding="utf-8") as f:
+    with open(log_file, "a", encoding="utf-8") as f:
         f.write(msg + "\n\n")
     print(msg)
 
 
-def log_llm_start(llm_name: str, log_file: str = None):
+def log_llm_start(llm_name: str, log_file: str):
     """Logs when an LLM is launched."""
-    filepath = log_file or _current_log_file
-    if not filepath:
-        print(f"Warning: No log file set. Call start_new_log() first.")
-        return
     timestamp = datetime.now().strftime("%H:%M:%S")
-    with open(filepath, "a", encoding="utf-8") as f:
+    with open(log_file, "a", encoding="utf-8") as f:
         f.write(f"[{timestamp}] {llm_name.upper()} → launched\n")
     print(f"[{timestamp}] {llm_name.upper()} → launched")
 
 
-def log_llm_finish(llm_name: str, elapsed_time: float, log_file: str = None):
+def log_llm_finish(llm_name: str, log_file: str, elapsed_time: float):
     """Logs when an LLM finishes with its time."""
-    filepath = log_file or _current_log_file
-    if not filepath:
-        print(f"Warning: No log file set. Call start_new_log() first.")
-        return
     timestamp = datetime.now().strftime("%H:%M:%S")
-    with open(filepath, "a", encoding="utf-8") as f:
+    with open(log_file, "a", encoding="utf-8") as f:
         f.write(f"[{timestamp}] {llm_name.upper()} → finished ({elapsed_time:.2f}s)\n")
     print(f"[{timestamp}] {llm_name.upper()} → finished ({elapsed_time:.2f}s)")
 
 
-def log_llm_retry(llm_name: str, attempt: int, max_attempts: int, error: str, wait_seconds: float, log_file: str = None):
+def log_llm_retry(llm_name: str, log_file: str, attempt: int, max_attempts: int, error: str, wait_seconds: float):
     """Logs when an LLM call is being retried."""
-    filepath = log_file or _current_log_file
-    if not filepath:
-        print(f"Warning: No log file set. Call start_new_log() first.")
-        return
     timestamp = datetime.now().strftime("%H:%M:%S")
     msg = f"[{timestamp}] {llm_name.upper()} → retry {attempt}/{max_attempts} after error: {error} (waiting {wait_seconds:.0f}s)"
-    with open(filepath, "a", encoding="utf-8") as f:
+    with open(log_file, "a", encoding="utf-8") as f:
         f.write(msg + "\n")
     print(msg)
 
 
-def log_llm_error(llm_name: str, error: str, log_file: str = None):
+def log_llm_error(llm_name: str, log_file: str, error: str):
     """Logs when an LLM has permanently failed after all retries."""
-    filepath = log_file or _current_log_file
-    if not filepath:
-        print(f"Warning: No log file set. Call start_new_log() first.")
-        return
     timestamp = datetime.now().strftime("%H:%M:%S")
     msg = f"[{timestamp}] {llm_name.upper()} → FAILED: {error}"
-    with open(filepath, "a", encoding="utf-8") as f:
+    with open(log_file, "a", encoding="utf-8") as f:
         f.write(msg + "\n")
     print(msg)
 
 
-def log_llm_timing(elapsed_time: float, log_file: str = None):
-    """
-    Logs the time taken for all LLM calls to complete.
-
-    Args:
-        elapsed_time: Time in seconds
-        log_file: Optional specific log file path. Uses current session log if not provided.
-    """
-    filepath = log_file or _current_log_file
-
-    if not filepath:
-        print(f"Warning: No log file set. Call start_new_log() first.")
-        return
-
-    with open(filepath, "a", encoding="utf-8") as f:
+def log_llm_timing(log_file: str, elapsed_time: float):
+    """Logs the time taken for all LLM calls to complete."""
+    with open(log_file, "a", encoding="utf-8") as f:
         f.write(f"LLM Response Time: {elapsed_time:.2f}s (parallel)\n\n")
 
 
-def log_cached_result(llm_name: str, analysis: dict = None, log_file: str = None):
+def log_cached_result(llm_name: str, log_file: str, analysis: dict = None):
     """
     Logs when a result is retrieved from cache instead of calling the LLM.
 
     Args:
         llm_name: Name of the LLM (e.g., "grok", "claude")
+        log_file: Log file path
         analysis: The cached analysis dict (optional)
-        log_file: Optional specific log file path. Uses current session log if not provided.
     """
-    filepath = log_file or _current_log_file
-
-    if not filepath:
-        print(f"Warning: No log file set. Call start_new_log() first.")
-        return
-
-    with open(filepath, "a", encoding="utf-8") as f:
+    with open(log_file, "a", encoding="utf-8") as f:
         f.write(f"\n{'-'*60}\n")
         f.write(f"  {llm_name.upper()} [CACHED]\n")
         f.write(f"{'-'*60}\n")
@@ -152,22 +115,16 @@ def log_cached_result(llm_name: str, analysis: dict = None, log_file: str = None
             f.write("\n")
 
 
-def log_llm_conversation(llm_name: str, response: dict, log_file: str = None):
+def log_llm_conversation(llm_name: str, log_file: str, response: dict):
     """
     Logs the full conversation from an LLM response to the log file.
 
     Args:
         llm_name: Name of the LLM (e.g., "OpenAI", "Claude", "Mistral")
+        log_file: Log file path
         response: The full response dict from agent.invoke()
-        log_file: Optional specific log file path. Uses current session log if not provided.
     """
-    filepath = log_file or _current_log_file
-
-    if not filepath:
-        print(f"Warning: No log file set. Call start_new_log() first.")
-        return
-
-    with open(filepath, "a", encoding="utf-8") as f:
+    with open(log_file, "a", encoding="utf-8") as f:
         f.write(f"\n{'-'*60}\n")
         f.write(f"  {llm_name.upper()}\n")
         f.write(f"{'-'*60}\n\n")
@@ -227,25 +184,19 @@ def log_llm_conversation(llm_name: str, response: dict, log_file: str = None):
         f.write(f"\n")
 
 
-def log_harmonization(harmonize_result: dict, final_scores: list[int] = None, log_file: str = None):
+def log_harmonization(harmonize_result: dict, log_file: str, final_scores: list[int] = None):
     """
     Logs harmonization results and debate decisions.
 
     Args:
         harmonize_result: Output from harmonize_and_check_debates()
+        log_file: Log file path
         final_scores: Optional recalculated scores after harmonization
-        log_file: Optional specific log file path. Uses current session log if not provided.
     """
-    filepath = log_file or _current_log_file
-
-    if not filepath:
-        print(f"Warning: No log file set. Call start_new_log() first.")
-        return
-
     harmonization_log = harmonize_result.get('harmonization_log', [])
     metrics_to_debate = harmonize_result.get('metrics_to_debate', [])
 
-    with open(filepath, "a", encoding="utf-8") as f:
+    with open(log_file, "a", encoding="utf-8") as f:
         f.write(f"\n{'='*60}\n")
         f.write(f"  HARMONIZATION & DEBATE CHECK\n")
         f.write(f"{'='*60}\n\n")
@@ -303,27 +254,21 @@ def log_harmonization(harmonize_result: dict, final_scores: list[int] = None, lo
 
 def log_final_report(
     ticker: str,
+    log_file: str,
     harmonize_result: dict,
     original_analyses: list,
     debate_result: dict = None,
-    log_file: str = None
 ):
     """
     Log the final metrics report with clear and complex metrics.
 
     Args:
         ticker: Stock symbol
+        log_file: Log file path
         harmonize_result: Output from harmonize_and_check_debates()
         original_analyses: List of 3 LLM analyses (filled_analyses) with reasons
         debate_result: Optional output from run_debate() if debate occurred
-        log_file: Optional specific log file path
     """
-    filepath = log_file or _current_log_file
-
-    if not filepath:
-        print("Warning: No log file set. Call start_new_log() first.")
-        return
-
     harmonization_log = harmonize_result.get('harmonization_log', [])
     metrics_to_debate = harmonize_result.get('metrics_to_debate', [])
 
@@ -334,7 +279,7 @@ def log_final_report(
     # Expert names (generic to support future LLM changes)
     expert_names = ["Expert 1", "Expert 2", "Expert 3"]
 
-    with open(filepath, "a", encoding="utf-8") as f:
+    with open(log_file, "a", encoding="utf-8") as f:
         f.write(f"\n{'='*60}\n")
         f.write(f"  FINAL METRICS REPORT\n")
         f.write(f"{'='*60}\n\n")
@@ -556,20 +501,14 @@ def _calculate_score(ratings: dict) -> int:
     return total
 
 
-def log_debate_transcript(debate_result: dict, log_file: str = None):
+def log_debate_transcript(debate_result: dict, log_file: str):
     """
     Log the full debate transcript.
 
     Args:
         debate_result: Output from run_debate() containing transcript, results, and changes
-        log_file: Optional specific log file path. Uses current session log if not provided.
+        log_file: Log file path
     """
-    filepath = log_file or _current_log_file
-
-    if not filepath:
-        print(f"Warning: No log file set. Call start_new_log() first.")
-        return
-
     transcript = debate_result.get('transcript', [])
     debate_results = debate_result.get('debate_results', {})
     changes = debate_result.get('position_changes', [])
@@ -582,7 +521,7 @@ def log_debate_transcript(debate_result: dict, log_file: str = None):
             metrics.append(t['metric'])
             seen.add(t['metric'])
 
-    with open(filepath, "a", encoding="utf-8") as f:
+    with open(log_file, "a", encoding="utf-8") as f:
         f.write(f"\n{'='*60}\n")
         f.write(f"  DEBATE TRANSCRIPT\n")
         f.write(f"{'='*60}\n\n")

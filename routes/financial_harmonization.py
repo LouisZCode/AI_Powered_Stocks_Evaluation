@@ -9,7 +9,7 @@ from sqlalchemy import and_
 
 import copy
 
-from logs import start_new_log, log_harmonization
+from logs import ensure_log, log_harmonization
 
 router = APIRouter()
 
@@ -50,9 +50,9 @@ class EvalRequest(BaseModel):
 
 
 @router.post("/harmonization/financials/{ticker_symbol}")
-async def harmonize_financial_analysis(ticker_symbol : str, request : EvalRequest, db : Session = Depends(get_db)):
+async def harmonize_financial_analysis(ticker_symbol : str, request : EvalRequest, session_id: str = None, db : Session = Depends(get_db)):
 
-    start_new_log(f"{ticker_symbol}_harmonization")
+    log_file = ensure_log(f"{ticker_symbol}_harmonization", session_id)
 
     if len(request.models) < 2:
         return {"error" : f"Result harmonization need more than 2 LLMs analisys, you only added {request.models[0]}"}
@@ -164,6 +164,6 @@ async def harmonize_financial_analysis(ticker_symbol : str, request : EvalReques
         }
     }
 
-    log_harmonization(result)
+    log_harmonization(result, log_file)
 
     return result

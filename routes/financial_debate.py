@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from sqlalchemy import and_
 
 from func import run_debate
-from logs import start_new_log, log_debate_transcript
+from logs import ensure_log, log_debate_transcript
 
 router = APIRouter()
 
@@ -20,9 +20,9 @@ class DebateRequest(BaseModel):
 
 
 @router.post("/debate/financials/{ticker_symbol}")
-async def debate_financial_analysis(ticker_symbol: str, request: DebateRequest, db: Session = Depends(get_db)):
+async def debate_financial_analysis(ticker_symbol: str, request: DebateRequest, session_id: str = None, db: Session = Depends(get_db)):
 
-    start_new_log(f"{ticker_symbol}_debate")
+    log_file = ensure_log(f"{ticker_symbol}_debate", session_id)
 
     if len(request.models) < 2:
         return {"error": f"Debate needs at least 2 LLMs, you only added {request.models[0]}"}
@@ -52,7 +52,7 @@ async def debate_financial_analysis(ticker_symbol: str, request: DebateRequest, 
         rounds=request.rounds
     )
 
-    log_debate_transcript(result)
+    log_debate_transcript(result, log_file)
 
     return {
         'ticker': ticker_symbol,
