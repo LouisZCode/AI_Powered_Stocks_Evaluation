@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 from database import get_db, add_clean_fillings_to_database
 from database.orm import DocumentChunk
+from database.financial_statements import get_or_fetch_financials
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
@@ -16,6 +17,8 @@ async def ingest_financials(ticker_symbol: str, db: Session = Depends(get_db)):
 
     if existing > 0:
         latest_filing = db.query(func.max(DocumentChunk.filing_date)).filter_by(ticker=ticker_symbol).scalar()
+        # Pre-cache structured financials so LLM routes only read from DB
+        await asyncio.to_thread(get_or_fetch_financials, ticker_symbol, db, latest_filing)
         return {
             "status": "exists",
             "ticker": ticker_symbol,
@@ -39,6 +42,8 @@ async def ingest_financials(ticker_symbol: str, db: Session = Depends(get_db)):
         }
 
     latest_filing = db.query(func.max(DocumentChunk.filing_date)).filter_by(ticker=ticker_symbol).scalar()
+    # Pre-cache structured financials so LLM routes only read from DB
+    await asyncio.to_thread(get_or_fetch_financials, ticker_symbol, db, latest_filing)
     return {
         "status": "ingested",
         "ticker": ticker_symbol,

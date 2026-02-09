@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from agents import create_financial_agent
 
 from database import get_db
-from database.financial_statements import get_structured_financials
+from database.financial_statements import get_cached_financials
 
 import asyncio
 import time
@@ -45,7 +45,7 @@ async def evaluate_financials(ticker_symbol : str, request : EvalRequest, db : S
         log_cached_result(model_name, analysis)
 
     # 3. Fetch structured financials once (shared by all models)
-    financial_context = await asyncio.to_thread(get_structured_financials, ticker_symbol)
+    financial_context = await asyncio.to_thread(get_cached_financials, ticker_symbol, db, latest_filing)
 
     user_message = ticker_symbol
     if financial_context:

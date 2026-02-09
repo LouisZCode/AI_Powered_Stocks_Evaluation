@@ -94,6 +94,73 @@ def _format_statement(ticker: str, title: str, df: pd.DataFrame, rows: list) -> 
     return "\n".join(lines)
 
 
+def get_cached_financials(ticker: str, db, latest_filing) -> str:
+    """
+    DB-only read — used by the analysis route so it never calls the SEC.
+    Returns the cached text block, or "" if not found.
+    """
+    from database.orm import FinancialStatements
+    from sqlalchemy import and_
+
+    cached = db.query(FinancialStatements).filter(
+        and_(
+            FinancialStatements.ticker == ticker,
+            FinancialStatements.latest_filing_date == latest_filing,
+        )
+    ).first()
+
+    return cached.financial_data if cached else ""
+
+
+def get_or_fetch_financials(ticker: str, db, latest_filing) -> str:
+    """
+    Check DB cache first. If miss, fetch from SEC and save.
+    Returns the formatted text block, or "" on failure.
+    """
+    from database.orm import FinancialStatements
+    from sqlalchemy import and_
+    from sqlalchemy.exc import IntegrityError
+
+    # 1. Check DB cache
+    cached = db.query(FinancialStatements).filter(
+        and_(
+            FinancialStatements.ticker == ticker,
+            FinancialStatements.latest_filing_date == latest_filing,
+        )
+    ).first()
+
+    if cached:
+        return cached.financial_data
+
+    # 2. Cache miss — fetch from SEC
+    financial_data = get_structured_financials(ticker)
+
+    if not financial_data:
+        return ""
+
+    # 3. Save to DB (handle race condition via unique constraint)
+    try:
+        new_row = FinancialStatements(
+            ticker=ticker,
+            financial_data=financial_data,
+            latest_filing_date=latest_filing,
+        )
+        db.add(new_row)
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        cached = db.query(FinancialStatements).filter(
+            and_(
+                FinancialStatements.ticker == ticker,
+                FinancialStatements.latest_filing_date == latest_filing,
+            )
+        ).first()
+        if cached:
+            return cached.financial_data
+
+    return financial_data
+
+
 def get_structured_financials(ticker: str, periods: int = 8) -> str:
     """
     Fetch income statement, balance sheet, and cash flow from the SEC
