@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from database.orm import DocumentChunk, LLMFinancialAnalysis
+from database.orm import DocumentChunk, LLMFinancialAnalysis, FinancialStatements
 from fastapi import Depends, HTTPException
 
 from pydantic import BaseModel
@@ -14,7 +14,7 @@ import time
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, func
 
-from logs import start_new_log, log_llm_conversation, log_llm_timing, log_llm_start, log_llm_finish, log_cached_result, log_llm_retry, log_llm_error
+from logs import start_new_log, log_llm_conversation, log_llm_timing, log_llm_start, log_llm_finish, log_cached_result, log_llm_retry, log_llm_error, log_data_source
 router = APIRouter()
 
 class EvalRequest(BaseModel):
@@ -25,8 +25,17 @@ async def evaluate_financials(ticker_symbol : str, request : EvalRequest, db : S
     # Start log
     start_new_log(ticker_symbol)
 
-    # 1. Get latest filing date for cache key
+    # 1. Get latest filing date for cache key and determine data source
     latest_filing = db.query(func.max(DocumentChunk.filing_date)).filter_by(ticker=ticker_symbol).scalar()
+
+    if latest_filing is not None:
+        data_source = "SEC"
+    else:
+        # No SEC chunks — check if Yahoo data exists in financial_statements cache
+        latest_filing = db.query(func.max(FinancialStatements.latest_filing_date)).filter_by(ticker=ticker_symbol).scalar()
+        data_source = "Yahoo" if latest_filing is not None else "None"
+
+    log_data_source(ticker_symbol, data_source)
 
     # 2. Check cache: which models already analyzed this ticker with current filing?
     cached = db.query(LLMFinancialAnalysis).filter(
@@ -53,7 +62,7 @@ async def evaluate_financials(ticker_symbol : str, request : EvalRequest, db : S
 
     # 4. Run LLMs only for models not in cache
     MAX_ATTEMPTS = 3
-    TIMEOUT_SECONDS = 120
+    TIMEOUT_SECONDS = 30
     BACKOFF_SECONDS = [2, 4]  # wait times between retries
 
     async def run_model(model_name: str):

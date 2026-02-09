@@ -38,6 +38,19 @@ def start_new_log(ticker: str) -> str:
     return filepath
 
 
+def log_data_source(ticker: str, source: str, log_file: str = None):
+    """Logs which data pipeline provided the financial data (SEC, Yahoo, Finnhub, Database)."""
+    filepath = log_file or _current_log_file
+    if not filepath:
+        print(f"Warning: No log file set. Call start_new_log() first.")
+        return
+    timestamp = datetime.now().strftime("%H:%M:%S")
+    msg = f"[{timestamp}] {ticker} → Financial data source: {source.upper()}"
+    with open(filepath, "a", encoding="utf-8") as f:
+        f.write(msg + "\n\n")
+    print(msg)
+
+
 def log_llm_start(llm_name: str, log_file: str = None):
     """Logs when an LLM is launched."""
     filepath = log_file or _current_log_file

@@ -23,7 +23,6 @@ INCOME_ROWS = [
     ("OperatingIncomeLoss", "Operating Income"),
     ("IncomeTaxExpenseBenefit", "Income Tax"),
     ("NetIncomeLoss", "Net Income"),
-    ("EarningsPerShareDiluted", "EPS (Diluted)"),
 ]
 
 BALANCE_ROWS = [
@@ -47,8 +46,6 @@ CASHFLOW_ROWS = [
     ("NetCashProvidedByUsedInFinancingActivities", "Financing Cash Flow"),
     ("PaymentsToAcquirePropertyPlantAndEquipment", "Capital Expenditures"),
     ("DepreciationDepletionAndAmortization", "Depreciation & Amortization"),
-    ("PaymentsForRepurchaseOfCommonStock", "Stock Buybacks"),
-    ("PaymentsOfDividendsCommonStock", "Dividends Paid"),
     ("RepaymentsOfLongTermDebt", "Debt Repayment"),
 ]
 
@@ -67,9 +64,23 @@ def _fmt(value) -> str:
     return f"${v:,.0f}"
 
 
+def _ts_to_quarter(ts) -> str:
+    """Convert Timestamp(2025-09-30) → 'Q3 2025'."""
+    q = (ts.month - 1) // 3 + 1
+    return f"Q{q} {ts.year}"
+
+
 def _format_statement(ticker: str, title: str, df: pd.DataFrame, rows: list) -> str:
     """Format one financial statement DataFrame into a text table."""
-    q_cols = [c for c in df.columns if c[0] == "Q" or c.startswith("FY")]
+    # Yahoo returns Timestamp columns; SEC returns string columns like "Q3 2025"
+    if len(df.columns) > 0 and hasattr(df.columns[0], "month"):
+        # Yahoo Timestamps — convert to quarter labels, keep original for .loc
+        raw_cols = list(df.columns)
+        q_labels = [_ts_to_quarter(c) for c in raw_cols]
+    else:
+        # SEC strings — filter to quarterly columns
+        raw_cols = [c for c in df.columns if c[0] == "Q" or c.startswith("FY")]
+        q_labels = raw_cols
 
     lines = []
     lines.append(f"{'=' * 80}")
@@ -77,16 +88,16 @@ def _format_statement(ticker: str, title: str, df: pd.DataFrame, rows: list) -> 
     lines.append(f"{'=' * 80}")
 
     header = f"{'Metric':<35}"
-    for q in q_cols:
-        header += f"{q:>14}"
+    for ql in q_labels:
+        header += f"{ql:>14}"
     lines.append(header)
-    lines.append("-" * (35 + 14 * len(q_cols)))
+    lines.append("-" * (35 + 14 * len(q_labels)))
 
     for xbrl_concept, label in rows:
         if xbrl_concept in df.index:
             line = f"{label:<35}"
-            for q in q_cols:
-                line += f"{_fmt(df.loc[xbrl_concept, q]):>14}"
+            for rc in raw_cols:
+                line += f"{_fmt(df.loc[xbrl_concept, rc]):>14}"
             lines.append(line)
         else:
             lines.append(f"{label:<35}{'(not found)':>14}")

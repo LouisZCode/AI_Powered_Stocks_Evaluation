@@ -1,9 +1,11 @@
 from fastapi import APIRouter, Depends
 from database import get_db, add_clean_fillings_to_database
-from database.orm import DocumentChunk
+from database.orm import DocumentChunk, FinancialStatements
 from database.financial_statements import get_or_fetch_financials
+from database.yahoo_financial_statements import get_yahoo_financials
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+from datetime import date
 
 import asyncio
 
@@ -33,6 +35,25 @@ async def ingest_financials(ticker_symbol: str, db: Session = Depends(get_db)):
     new_count = db.query(func.count(DocumentChunk.id)).filter_by(ticker=ticker_symbol).scalar()
 
     if new_count == 0:
+        # SEC found nothing — try Yahoo Finance for non-US stocks
+        yahoo_data = await asyncio.to_thread(get_yahoo_financials, ticker_symbol)
+        if yahoo_data:
+            filing_date = date.today()
+            new_row = FinancialStatements(
+                ticker=ticker_symbol,
+                financial_data=yahoo_data,
+                latest_filing_date=filing_date,
+            )
+            db.add(new_row)
+            db.commit()
+            return {
+                "status": "ingested",
+                "ticker": ticker_symbol,
+                "chunks": 0,
+                "latest_filing_date": str(filing_date),
+                "source": "yahoo",
+            }
+
         return {
             "status": "not_found",
             "ticker": ticker_symbol,
