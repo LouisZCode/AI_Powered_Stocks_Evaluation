@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from agents import create_financial_agent
 
 from database import get_db
+from database.financial_statements import get_structured_financials
 
 import asyncio
 import time
@@ -43,7 +44,14 @@ async def evaluate_financials(ticker_symbol : str, request : EvalRequest, db : S
     for model_name, analysis in cached_results.items():
         log_cached_result(model_name, analysis)
 
-    # 3. Run LLMs only for models not in cache
+    # 3. Fetch structured financials once (shared by all models)
+    financial_context = await asyncio.to_thread(get_structured_financials, ticker_symbol)
+
+    user_message = ticker_symbol
+    if financial_context:
+        user_message = f"{ticker_symbol}\n\n{financial_context}"
+
+    # 4. Run LLMs only for models not in cache
     MAX_ATTEMPTS = 3
     TIMEOUT_SECONDS = 120
     BACKOFF_SECONDS = [2, 4]  # wait times between retries
@@ -61,7 +69,7 @@ async def evaluate_financials(ticker_symbol : str, request : EvalRequest, db : S
                 log_llm_start(model_name)
                 start_time = time.time()
                 response = await asyncio.wait_for(
-                    agent.ainvoke({"messages": {"role": "user", "content": ticker_symbol}}),
+                    agent.ainvoke({"messages": {"role": "user", "content": user_message}}),
                     timeout=TIMEOUT_SECONDS,
                 )
                 elapsed = time.time() - start_time
