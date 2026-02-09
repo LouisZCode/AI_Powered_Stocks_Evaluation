@@ -22,6 +22,12 @@ export default function PhaseStatus({ phase, ingestionData, error, modelStatuses
     let rafId: number;
 
     const tick = () => {
+      // Stop updating once useAnalysis signals completion
+      if (progressBarRef.current?.dataset.done) {
+        if (pctRef.current) pctRef.current.textContent = "100%";
+        return;
+      }
+
       const elapsed = (performance.now() - startTime) / 1000;
       // Two-phase curve: fast ramp to ~80%, then crawls toward 97%
       // fast: 82 * (1-e^(-t/10)) → ~16% at 2s, ~33% at 5s, ~52% at 10s
@@ -61,14 +67,18 @@ export default function PhaseStatus({ phase, ingestionData, error, modelStatuses
       {phase === "ingesting" && (
         <div className="px-4 py-3 bg-sky-400/5 border border-sky-400/10 rounded-lg">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-sky-300">Gathering SEC data...</span>
+            <span className="text-sm text-sky-300">
+              {ingestionData?.status === "exists"
+                ? "Retrieving Financial data in real time.."
+                : "Gathering SEC data..."}
+            </span>
             <span ref={pctRef} className="text-xs text-sky-400/70 tabular-nums">0%</span>
           </div>
           <div className="h-2 rounded-full bg-white/[0.06] overflow-hidden">
             <div
               ref={progressBarRef}
               className="h-full rounded-full bg-sky-400/80 progress-bar-glow"
-              style={{ width: "0%" }}
+              style={{ width: "0%", transition: "width 0.6s ease-out" }}
             />
           </div>
         </div>

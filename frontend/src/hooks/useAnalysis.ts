@@ -20,6 +20,7 @@ export function useAnalysis() {
   const [modelStatuses, setModelStatuses] = useState<ModelStatus[]>([]);
 
   const evaluationsRef = useRef<Record<string, FinancialAnalysis>>({});
+  const progressBarRef = useRef<HTMLDivElement>(null);
 
   const run = useCallback(async (ticker: string, models: string[]) => {
     const sessionId = crypto.randomUUID().replace(/-/g, "").slice(0, 8);
@@ -43,6 +44,7 @@ export function useAnalysis() {
     // Phase 1: Ingestion
     setPhase("ingesting");
     try {
+      const ingestionStart = Date.now();
       const ingestion = await ingestFinancials(ticker);
       setIngestionData(ingestion);
 
@@ -51,6 +53,20 @@ export function useAnalysis() {
         setPhase("error");
         return;
       }
+
+      // Minimum ingestion display time (6-12s) so cached data still animates
+      const ingestionElapsed = Date.now() - ingestionStart;
+      const minIngestion = (6 + Math.random() * 6) * 1000;
+      if (ingestionElapsed < minIngestion) {
+        await new Promise((r) => setTimeout(r, minIngestion - ingestionElapsed));
+      }
+
+      // Signal RAF loop to stop, then fill bar to 100%
+      if (progressBarRef.current) {
+        progressBarRef.current.dataset.done = "true";
+        progressBarRef.current.style.width = "100%";
+      }
+      await new Promise((r) => setTimeout(r, 700));
 
       // Phase 2: Analysis — fire N parallel single-model requests
       setPhase("analyzing");
@@ -128,5 +144,5 @@ export function useAnalysis() {
     evaluationsRef.current = {};
   }, []);
 
-  return { phase, ingestionData, analysisData, error, modelStatuses, run, reset };
+  return { phase, ingestionData, analysisData, error, modelStatuses, run, reset, progressBarRef };
 }

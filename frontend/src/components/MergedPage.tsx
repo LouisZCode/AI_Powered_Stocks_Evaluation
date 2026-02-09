@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect } from "react";
 import Script from "next/script";
 import { useAnalysis } from "@/hooks/useAnalysis";
 import ParticleCanvas from "@/components/ParticleCanvas";
@@ -57,8 +57,7 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
   const [mode, setMode] = useState<Mode>(initialMode);
   const [transitioning, setTransitioning] = useState<"out" | "in" | null>(null);
   const [pendingTicker, setPendingTicker] = useState(initialTicker);
-  const progressBarRef = useRef<HTMLDivElement>(null);
-  const { phase, ingestionData, analysisData, error, modelStatuses, run, reset } = useAnalysis();
+  const { phase, ingestionData, analysisData, error, modelStatuses, run, reset, progressBarRef } = useAnalysis();
   const isLoading = phase === "ingesting" || phase === "analyzing";
 
   const showHome = mode === "home" || transitioning === "out";
