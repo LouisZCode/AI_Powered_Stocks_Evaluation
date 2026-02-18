@@ -81,10 +81,6 @@ async def _debate_single_metric(
         }
         initial_ratings[model_name] = rating
 
-    print(f"\n{'='*50}")
-    print(f"DEBATE: {metric.upper()} ({', '.join(f'{k}:{v['rating']}' for k,v in positions.items())})")
-    print(f"{'='*50}")
-
     # Round 1: State positions (parallel)
     round1_tasks = []
     for model_name, agent in debate_agents.items():
@@ -97,16 +93,12 @@ async def _debate_single_metric(
         round1_tasks.append(_invoke_agent(agent, prompt, model_name))
 
     round1_results = await asyncio.gather(*round1_tasks)
-    print(f"\n[Round 1 - State Positions]")
     for model_name, response in round1_results:
         positions[model_name]['history'].append(response)
         transcript.append({
             'round': 1, 'metric': metric,
             'llm': model_name, 'content': response
         })
-        preview = response[:150].replace('\n', ' ')
-        print(f"  {model_name}: {preview}...")
-
     # Rounds 2 to N: Review and respond (parallel per round)
     for round_num in range(2, max_rounds + 1):
         review_tasks = []
@@ -122,7 +114,6 @@ async def _debate_single_metric(
             review_tasks.append(_invoke_agent(agent, prompt, model_name))
 
         review_results = await asyncio.gather(*review_tasks)
-        print(f"\n[Round {round_num} - Review & Respond]")
         for model_name, response in review_results:
             old_rating = positions[model_name]['rating']
             new_rating = _extract_updated_rating(response)
@@ -132,9 +123,6 @@ async def _debate_single_metric(
                     'from': old_rating, 'to': new_rating
                 })
                 positions[model_name]['rating'] = new_rating
-                print(f"  {model_name}: {old_rating} → {new_rating} | {response[:120].replace(chr(10), ' ')}...")
-            else:
-                print(f"  {model_name}: holds {old_rating} | {response[:120].replace(chr(10), ' ')}...")
             positions[model_name]['history'].append(response)
             transcript.append({
                 'round': round_num, 'metric': metric,
@@ -154,24 +142,19 @@ async def _debate_single_metric(
         final_tasks.append(_invoke_agent(agent, prompt, model_name))
 
     final_results = await asyncio.gather(*final_tasks)
-    print(f"\n[Final - Commit]")
     final_ratings = []
     for model_name, response in final_results:
         final_rating = _extract_final_rating(response)
         if final_rating:
             final_ratings.append(final_rating)
-            print(f"  {model_name}: {final_rating}")
         else:
             final_ratings.append(positions[model_name]['rating'])
-            print(f"  {model_name}: {positions[model_name]['rating']} (fallback)")
         transcript.append({
             'round': 'final', 'metric': metric,
             'llm': model_name, 'content': response
         })
 
     consensus = _get_majority_rating(final_ratings)
-    print(f"\n→ CONSENSUS: {consensus}")
-    print(f"{'='*50}")
 
     # Track position changes: compare initial vs final (skip if already tracked in review rounds)
     models_already_changed = {c['llm'] for c in changes if c['metric'] == metric}

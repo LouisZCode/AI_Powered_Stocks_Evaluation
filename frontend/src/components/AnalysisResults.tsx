@@ -15,9 +15,10 @@ interface Props {
   debating: boolean;
   debateData: DebateResponse | null;
   debateError: string | null;
+  currentDebateMetric: string | null;
 }
 
-export default function AnalysisResults({ data, onHarmonize, harmonizing, harmonizationData, onDebate, debating, debateData, debateError }: Props) {
+export default function AnalysisResults({ data, onHarmonize, harmonizing, harmonizationData, onDebate, debating, debateData, debateError, currentDebateMetric }: Props) {
   const entries = Object.entries(data.evaluations);
   const harmCardRef = useRef<HTMLDivElement>(null);
   const debateCardRef = useRef<HTMLDivElement>(null);
@@ -129,6 +130,7 @@ export default function AnalysisResults({ data, onHarmonize, harmonizing, harmon
             debating={debating}
             debateData={debateData}
             debateError={debateError}
+            currentDebateMetric={currentDebateMetric}
             reveal={revealDebateTiles}
           />
         </div>

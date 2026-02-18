@@ -12,6 +12,18 @@ import type {
   FinancialAnalysis,
 } from "@/lib/types";
 
+function accumulateDebateResult(prev: DebateResponse | null, result: DebateResponse): DebateResponse {
+  if (!prev) return result;
+  return {
+    ticker: result.ticker,
+    models_used: result.models_used,
+    rounds: result.rounds,
+    debate_results: { ...prev.debate_results, ...result.debate_results },
+    position_changes: [...prev.position_changes, ...result.position_changes],
+    transcript: [...prev.transcript, ...result.transcript],
+  };
+}
+
 export function useAnalysis() {
   const [phase, setPhase] = useState<Phase>("idle");
   const [ingestionData, setIngestionData] =
@@ -25,6 +37,7 @@ export function useAnalysis() {
   const [debateData, setDebateData] = useState<DebateResponse | null>(null);
   const [debating, setDebating] = useState(false);
   const [debateError, setDebateError] = useState<string | null>(null);
+  const [currentDebateMetric, setCurrentDebateMetric] = useState<string | null>(null);
 
   const evaluationsRef = useRef<Record<string, FinancialAnalysis>>({});
   const progressBarRef = useRef<HTMLDivElement>(null);
@@ -164,14 +177,21 @@ export function useAnalysis() {
     setDebating(true);
     setDebateData(null);
     setDebateError(null);
-    try {
-      const result = await debateMetrics(ticker, models, metrics, rounds, sessionIdRef.current);
-      setDebateData(result);
-    } catch (err) {
-      setDebateError(err instanceof Error ? err.message : "Debate failed");
-    } finally {
-      setDebating(false);
+    setCurrentDebateMetric(null);
+
+    for (const metric of metrics) {
+      setCurrentDebateMetric(metric);
+      try {
+        const result = await debateMetrics(ticker, models, [metric], rounds, sessionIdRef.current);
+        setDebateData((prev) => accumulateDebateResult(prev, result));
+      } catch (err) {
+        setDebateError(err instanceof Error ? err.message : "Debate failed");
+        break;
+      }
     }
+
+    setCurrentDebateMetric(null);
+    setDebating(false);
   }, []);
 
   const reset = useCallback(() => {
@@ -187,5 +207,5 @@ export function useAnalysis() {
     sessionIdRef.current = "";
   }, []);
 
-  return { phase, ingestionData, analysisData, harmonizationData, harmonizing, debateData, debating, debateError, error, modelStatuses, run, harmonize, debate, reset, progressBarRef };
+  return { phase, ingestionData, analysisData, harmonizationData, harmonizing, debateData, debating, debateError, currentDebateMetric, error, modelStatuses, run, harmonize, debate, reset, progressBarRef };
 }
