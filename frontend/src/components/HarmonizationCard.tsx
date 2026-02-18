@@ -17,13 +17,13 @@ const METRIC_LABELS: Record<string, string> = {
 function actionBadge(action: HarmonizationLogEntry["action"]) {
   switch (action) {
     case "already_aligned":
-      return { label: "Aligned", cls: "text-emerald-400 bg-emerald-400/15 border-emerald-400/25" };
+      return { label: "Aligned", cls: "text-emerald-400 bg-emerald-400/15 border-emerald-400/25", glow: "rgba(52, 211, 153, 0.35)" };
     case "harmonized":
-      return { label: "Harmonized", cls: "text-amber-300 bg-amber-300/15 border-amber-300/25" };
+      return { label: "Harmonized", cls: "text-amber-300 bg-amber-300/15 border-amber-300/25", glow: "rgba(252, 211, 77, 0.35)" };
     case "debate":
-      return { label: "Needs Debate", cls: "text-red-400 bg-red-400/15 border-red-400/25" };
+      return { label: "Needs Debate", cls: "text-red-400 bg-red-400/15 border-red-400/25", glow: "rgba(248, 113, 113, 0.35)" };
     case "skipped":
-      return { label: "Skipped", cls: "text-zinc-400 bg-zinc-400/15 border-zinc-400/25" };
+      return { label: "Skipped", cls: "text-zinc-400 bg-zinc-400/15 border-zinc-400/25", glow: "rgba(161, 161, 170, 0.25)" };
   }
 }
 
@@ -39,9 +39,10 @@ function ratingColor(rating: string) {
 
 interface Props {
   data: HarmonizationResponse;
+  reveal?: boolean;
 }
 
-export default function HarmonizationCard({ data }: Props) {
+export default function HarmonizationCard({ data, reveal = true }: Props) {
   const [expanded, setExpanded] = useState<string | null>(null);
   const { summary, harmonization_log } = data;
 
@@ -64,7 +65,7 @@ export default function HarmonizationCard({ data }: Props) {
 
       {/* Metrics grid */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        {harmonization_log.map((entry) => {
+        {harmonization_log.map((entry, idx) => {
           const badge = actionBadge(entry.action);
           const isExpanded = expanded === entry.metric;
 
@@ -72,11 +73,12 @@ export default function HarmonizationCard({ data }: Props) {
             <button
               key={entry.metric}
               onClick={() => setExpanded(isExpanded ? null : entry.metric)}
-              className={`flex flex-col gap-1.5 p-2.5 rounded-lg border text-left transition-colors ${
+              className={`${reveal ? "animate-metricReveal" : "opacity-0"} flex flex-col gap-1.5 p-2.5 rounded-lg border text-left transition-colors ${
                 isExpanded
                   ? "border-sky-300/20 bg-sky-300/5"
                   : "border-white/[0.08] bg-white/[0.08] hover:bg-white/[0.10]"
               }`}
+              style={reveal ? { animationDelay: `${idx * 200}ms`, "--glow-color": badge.glow } as React.CSSProperties : undefined}
             >
               <span className="text-[11px] md:text-[10px] uppercase tracking-wider text-muted">
                 {METRIC_LABELS[entry.metric] ?? entry.metric}
@@ -128,8 +130,8 @@ export default function HarmonizationCard({ data }: Props) {
       })()}
 
       {/* Debate preview */}
-      {data.metrics_to_debate.length > 0 && (
-        <div className="border-t border-white/[0.08] pt-3">
+      {reveal && data.metrics_to_debate.length > 0 && (
+        <div className="border-t border-white/[0.08] pt-3 animate-fadeIn">
           <p className="text-xs text-muted">
             <span className="text-red-400 font-medium">{data.metrics_to_debate.length} metric{data.metrics_to_debate.length > 1 ? "s" : ""}</span>{" "}
             flagged for debate:{" "}

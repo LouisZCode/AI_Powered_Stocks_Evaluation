@@ -169,6 +169,30 @@ body {
   animation: pulseDot 2s ease-in-out infinite;
 }
 
+/* Harmonization metric tile — staggered entrance + glow pulse */
+@keyframes metricReveal {
+  0% {
+    opacity: 0;
+    transform: translateY(12px);
+    box-shadow: 0 0 0px var(--glow-color, transparent);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(0);
+    box-shadow: 0 0 20px var(--glow-color, transparent);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    box-shadow: 0 0 0px var(--glow-color, transparent);
+  }
+}
+
+.animate-metricReveal {
+  opacity: 0;
+  animation: metricReveal 0.9s ease-out forwards;
+}
+
 /* Staggered delays for homepage hero */
 .delay-0   { animation-delay: 0s; }
 .delay-100 { animation-delay: 0.1s; }

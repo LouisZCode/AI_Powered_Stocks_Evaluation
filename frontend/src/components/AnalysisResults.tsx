@@ -1,3 +1,6 @@
+"use client";
+
+import { useRef, useEffect, useState } from "react";
 import type { AnalysisResponse, HarmonizationResponse } from "@/lib/types";
 import AnalysisCard from "./AnalysisCard";
 import HarmonizationCard from "./HarmonizationCard";
@@ -11,6 +14,22 @@ interface Props {
 
 export default function AnalysisResults({ data, onHarmonize, harmonizing, harmonizationData }: Props) {
   const entries = Object.entries(data.evaluations);
+  const harmCardRef = useRef<HTMLDivElement>(null);
+  const [revealTiles, setRevealTiles] = useState(false);
+
+  // Scroll first, then reveal tiles
+  useEffect(() => {
+    if (!harmonizationData) { setRevealTiles(false); return; }
+    // Scroll to card immediately (it's mounted but tiles are invisible)
+    const scrollTimer = setTimeout(() => {
+      harmCardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 100);
+    // After scroll settles, trigger tile animations
+    const revealTimer = setTimeout(() => {
+      setRevealTiles(true);
+    }, 800);
+    return () => { clearTimeout(scrollTimer); clearTimeout(revealTimer); };
+  }, [harmonizationData]);
 
   if (entries.length === 0) return null;
 
@@ -69,7 +88,11 @@ export default function AnalysisResults({ data, onHarmonize, harmonizing, harmon
       </button>
 
       {/* Harmonization results */}
-      {harmonizationData && <HarmonizationCard data={harmonizationData} />}
+      {harmonizationData && (
+        <div ref={harmCardRef}>
+          <HarmonizationCard data={harmonizationData} reveal={revealTiles} />
+        </div>
+      )}
     </div>
   );
 }
