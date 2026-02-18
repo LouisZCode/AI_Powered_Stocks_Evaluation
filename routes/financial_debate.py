@@ -60,4 +60,5 @@ async def debate_financial_analysis(ticker_symbol: str, request: DebateRequest, 
         'rounds': request.rounds,
         'debate_results': result['debate_results'],
         'position_changes': result['position_changes'],
+        'transcript': result['transcript'],
     }

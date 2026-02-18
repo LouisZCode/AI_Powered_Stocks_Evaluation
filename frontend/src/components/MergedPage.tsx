@@ -60,6 +60,11 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
   const { phase, ingestionData, analysisData, harmonizationData, harmonizing, debateData, debating, debateError, error, modelStatuses, run, harmonize, debate, reset, progressBarRef } = useAnalysis();
   const isLoading = phase === "ingesting" || phase === "analyzing";
 
+  const handleRun = useCallback((ticker: string, models: string[]) => {
+    setPendingTicker(ticker);
+    run(ticker, models);
+  }, [run]);
+
   const handleHarmonize = useCallback(() => {
     if (!analysisData) return;
     harmonize(pendingTicker, Object.keys(analysisData.evaluations));
@@ -420,7 +425,7 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
         <div className={`relative z-10 ${transitioning === "in" ? "animate-analyzeEnter" : ""}`}>
           <GlassContainer>
             <Header phase={phase} />
-            <TickerInput onSubmit={run} disabled={isLoading} initialTicker={pendingTicker} />
+            <TickerInput onSubmit={handleRun} disabled={isLoading} initialTicker={pendingTicker} />
             <PhaseStatus phase={phase} ingestionData={ingestionData} error={error} modelStatuses={modelStatuses} progressBarRef={progressBarRef} />
             {phase === "done" && analysisData && (
               <AnalysisResults

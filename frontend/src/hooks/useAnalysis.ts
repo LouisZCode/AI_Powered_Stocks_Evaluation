@@ -162,6 +162,7 @@ export function useAnalysis() {
 
   const debate = useCallback(async (ticker: string, models: string[], metrics: string[], rounds: number) => {
     setDebating(true);
+    setDebateData(null);
     setDebateError(null);
     try {
       const result = await debateMetrics(ticker, models, metrics, rounds, sessionIdRef.current);

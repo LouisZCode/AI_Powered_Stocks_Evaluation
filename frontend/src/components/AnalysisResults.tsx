@@ -23,6 +23,7 @@ export default function AnalysisResults({ data, onHarmonize, harmonizing, harmon
   const debateCardRef = useRef<HTMLDivElement>(null);
   const [revealTiles, setRevealTiles] = useState(false);
   const [revealDebateTiles, setRevealDebateTiles] = useState(false);
+  const [showDebate, setShowDebate] = useState(false);
 
   // Scroll first, then reveal tiles — harmonization
   useEffect(() => {
@@ -35,6 +36,13 @@ export default function AnalysisResults({ data, onHarmonize, harmonizing, harmon
     }, 800);
     return () => { clearTimeout(scrollTimer); clearTimeout(revealTimer); };
   }, [harmonizationData]);
+
+  // Show debate section ~2.5s after harmonization tiles finish revealing
+  useEffect(() => {
+    if (!revealTiles) { setShowDebate(false); return; }
+    const timer = setTimeout(() => setShowDebate(true), 2500);
+    return () => clearTimeout(timer);
+  }, [revealTiles]);
 
   // Scroll first, then reveal tiles — debate
   useEffect(() => {
@@ -111,8 +119,8 @@ export default function AnalysisResults({ data, onHarmonize, harmonizing, harmon
         </div>
       )}
 
-      {/* Debate section — shown when harmonization flags metrics for debate */}
-      {harmonizationData && harmonizationData.metrics_to_debate.length > 0 && (
+      {/* Debate section — shown after harmonization tiles finish revealing */}
+      {harmonizationData && harmonizationData.metrics_to_debate.length > 0 && showDebate && (
         <div ref={debateCardRef}>
           <DebateSection
             modelsUsed={harmonizationData.models_used}

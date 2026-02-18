@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import type { DebateResponse } from "@/lib/types";
+import { useState, useMemo, useEffect } from "react";
+import type { DebateResponse, DebateTranscriptEntry } from "@/lib/types";
 
 const METRIC_LABELS: Record<string, string> = {
   revenue: "Revenue",
@@ -47,6 +47,14 @@ function ratingGlow(rating: string) {
   return "rgba(161, 161, 170, 0.25)";
 }
 
+/** Extract first sentence from content as a summary line. */
+function extractSummary(content: string): { summary: string; hasMore: boolean } {
+  const match = content.match(/^[^.!?\n]+[.!?]?/);
+  const summary = match ? match[0].trim() : content.slice(0, 120).trim();
+  const hasMore = content.length > summary.length + 5;
+  return { summary, hasMore };
+}
+
 interface Props {
   modelsUsed: string[];
   metricsToDebate: string[];
@@ -68,6 +76,10 @@ export default function DebateSection({
 }: Props) {
   const [selectedModels, setSelectedModels] = useState<string[]>(modelsUsed);
   const [rounds, setRounds] = useState(2);
+  const [phaseIndex, setPhaseIndex] = useState(0);
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [expandedLlm, setExpandedLlm] = useState<string | null>(null);
+  const [fullReasoningLlm, setFullReasoningLlm] = useState<string | null>(null);
 
   const toggleModel = (model: string) => {
     setSelectedModels((prev) =>
@@ -75,136 +87,234 @@ export default function DebateSection({
     );
   };
 
-  const canStart = selectedModels.length >= 2 && !debating && !debateData;
+  const canStart = selectedModels.length >= 2 && !debating;
+
+  // Build progress phase messages from current props
+  const phases = useMemo(() => {
+    const msgs: string[] = [];
+    for (let r = 1; r <= rounds; r++) {
+      msgs.push(`Round ${r}: Models ${r === 1 ? "stating their positions" : "reviewing arguments"}...`);
+      for (const m of selectedModels) {
+        msgs.push(`Round ${r}: ${m} ${r === 1 ? "analyzing" : "responding"}...`);
+      }
+    }
+    msgs.push("Final: Models committing to stances...");
+    msgs.push("Final: Building consensus...");
+    return msgs;
+  }, [rounds, selectedModels]);
+
+  // Advance phase index while debating
+  useEffect(() => {
+    if (!debating) { setPhaseIndex(0); return; }
+    const interval = setInterval(() => {
+      setPhaseIndex((prev) => (prev + 1) % phases.length);
+    }, 3500);
+    return () => clearInterval(interval);
+  }, [debating, phases.length]);
+
+  // Reset expanded state when debate data changes
+  useEffect(() => {
+    setExpanded(null);
+    setExpandedLlm(null);
+    setFullReasoningLlm(null);
+  }, [debateData]);
+
+  // Get final-round transcript entries for a metric
+  const getFinalEntriesForMetric = (metric: string): DebateTranscriptEntry[] => {
+    if (!debateData?.transcript) return [];
+    return debateData.transcript.filter(
+      (e) => e.metric === metric && String(e.round) === "final"
+    );
+  };
 
   return (
-    <div className="glass-card rounded-xl p-3.5 md:p-5 flex flex-col gap-4 animate-fadeIn">
+    <div className="glass-card rounded-xl p-4 md:p-6 flex flex-col gap-5 animate-fadeIn">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-red-400" />
-          <span className="font-mono text-sm text-primary">Debate</span>
-        </div>
-        <span className="text-xs font-mono text-red-400">
-          {metricsToDebate.length} metric{metricsToDebate.length > 1 ? "s" : ""} need resolution
-        </span>
+      <div className="flex items-center gap-2">
+        <div className="w-2 h-2 rounded-full bg-amber-400" />
+        <span className="font-mono text-sm text-primary">Debate</span>
       </div>
 
-      {/* Controls — hidden after results */}
-      {!debateData && (
-        <div className="flex flex-col gap-3">
-          {/* Model checkboxes */}
-          <div className="flex flex-wrap gap-2">
-            {modelsUsed.map((model) => (
-              <label
-                key={model}
-                className={`flex items-center gap-2 px-3 py-2 md:py-1.5 rounded-md border text-xs font-mono cursor-pointer transition-colors ${
-                  selectedModels.includes(model)
-                    ? "border-amber-300/30 bg-amber-300/10 text-amber-300"
-                    : "border-white/[0.06] bg-white/[0.02] text-muted"
-                } ${debating ? "opacity-40 cursor-not-allowed" : ""}`}
-              >
-                <input
-                  type="checkbox"
-                  checked={selectedModels.includes(model)}
-                  onChange={() => toggleModel(model)}
-                  disabled={debating}
-                  className="sr-only"
-                />
-                <div
-                  className={`w-3.5 h-3.5 md:w-3 md:h-3 rounded-sm border flex items-center justify-center ${
-                    selectedModels.includes(model)
-                      ? "border-amber-300 bg-amber-300/20"
-                      : "border-white/20"
-                  }`}
-                >
-                  {selectedModels.includes(model) && (
-                    <svg
-                      className="w-2 h-2 text-amber-300"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={3}
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                  )}
-                </div>
-                {model}
-              </label>
-            ))}
-          </div>
+      {/* Disagreement summary */}
+      <div className="flex flex-col items-center gap-1">
+        <span className="font-mono text-sm text-primary">
+          {metricsToDebate.length} metric{metricsToDebate.length > 1 ? "s" : ""} where models disagreed
+        </span>
+        <div className="flex flex-col items-start gap-0.5">
+          {metricsToDebate.map((m) => (
+            <span key={m} className="text-xs font-mono text-amber-300">- {METRIC_LABELS[m] ?? m}</span>
+          ))}
+        </div>
+      </div>
 
-          {/* Rounds + Start */}
-          <div className="flex items-center gap-3">
-            <label className="flex items-center gap-2 text-xs text-muted font-mono">
-              Rounds:
-              <select
-                value={rounds}
-                onChange={(e) => setRounds(Number(e.target.value))}
-                disabled={debating}
-                className="bg-white/[0.05] border border-white/[0.1] rounded px-2 py-1 text-xs text-primary font-mono outline-none focus:border-amber-300/30 disabled:opacity-40"
-              >
-                <option value={1}>1</option>
-                <option value={2}>2</option>
-                <option value={3}>3</option>
-              </select>
-            </label>
-
-            <button
-              disabled={!canStart}
-              onClick={() => onDebate(selectedModels, metricsToDebate, rounds)}
-              className={`ml-auto px-5 py-2 rounded-lg text-xs font-medium flex items-center gap-2 transition-all ${
-                debating
-                  ? "bg-red-400/10 border border-red-400/20 text-red-300 opacity-60 cursor-not-allowed"
-                  : canStart
-                    ? "bg-red-400/15 border border-red-400/30 text-red-300 hover:bg-red-400/25 hover:border-red-400/40 cursor-pointer"
-                    : "bg-red-400/10 border border-red-400/20 text-red-300 opacity-40 cursor-not-allowed"
-              }`}
+      {/* Controls — always visible so user can adjust and re-run */}
+      <div className="flex flex-col gap-2">
+        {/* Model checkboxes + Rounds grouped together */}
+        <div className="flex flex-wrap gap-5 justify-center">
+          {modelsUsed.map((model) => (
+            <label
+              key={model}
+              className={`flex items-center gap-2 px-3 py-2 md:py-1.5 rounded-lg border text-xs font-mono cursor-pointer transition-colors ${
+                selectedModels.includes(model)
+                  ? "border-amber-300/30 bg-amber-300/10 text-amber-300"
+                  : "border-white/[0.06] bg-white/[0.02] text-muted"
+              } ${debating ? "opacity-40 cursor-not-allowed" : ""}`}
             >
-              {debating ? (
-                <>
-                  <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                  Debating...
-                </>
-              ) : (
-                <>
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                  </svg>
-                  Start Debate
-                </>
-              )}
-            </button>
-          </div>
-
-          {selectedModels.length < 2 && !debating && (
-            <p className="text-[10px] text-red-400/70 font-mono">
-              Select at least 2 models to start a debate
-            </p>
-          )}
-
-          {/* Inline error with retry */}
-          {debateError && !debating && (
-            <div className="flex items-start gap-3 p-3 rounded-lg bg-red-400/10 border border-red-400/20 animate-fadeIn">
-              <svg className="w-4 h-4 text-red-400 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs text-red-300 font-medium">Debate failed</p>
-                <p className="text-[10px] text-red-400/70 font-mono mt-1 break-words">{debateError}</p>
-              </div>
-              <button
-                onClick={() => onDebate(selectedModels, metricsToDebate, rounds)}
-                className="shrink-0 px-3 py-1.5 rounded-md text-[10px] font-medium bg-red-400/15 border border-red-400/30 text-red-300 hover:bg-red-400/25 cursor-pointer transition-colors"
+              <input
+                type="checkbox"
+                checked={selectedModels.includes(model)}
+                onChange={() => toggleModel(model)}
+                disabled={debating}
+                className="sr-only"
+              />
+              <div
+                className={`w-3.5 h-3.5 md:w-3 md:h-3 rounded-sm border flex items-center justify-center ${
+                  selectedModels.includes(model)
+                    ? "border-amber-300 bg-amber-300/20"
+                    : "border-white/20"
+                }`}
               >
-                Retry
-              </button>
-            </div>
+                {selectedModels.includes(model) && (
+                  <svg
+                    className="w-2 h-2 text-amber-300"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={3}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </div>
+              {model}
+            </label>
+          ))}
+        </div>
+
+        {/* Rounds selector — grouped tight with model chips */}
+        <div className="flex justify-center">
+          <label className="flex items-center gap-2 text-xs text-muted font-mono">
+            Rounds:
+            <select
+              value={rounds}
+              onChange={(e) => setRounds(Number(e.target.value))}
+              disabled={debating}
+              className="bg-white/[0.05] border border-white/[0.1] rounded-lg px-2 py-1 text-xs text-primary font-mono outline-none focus:border-amber-300/30 disabled:opacity-40"
+            >
+              <option value={1}>1</option>
+              <option value={2}>2</option>
+              <option value={3}>3</option>
+              <option value={4}>4</option>
+              <option value={5}>5</option>
+            </select>
+          </label>
+        </div>
+      </div>
+
+      {/* More space before the action button */}
+      <div className="h-0" />
+
+      {/* Start / Re-Debate button */}
+      {debateData ? (
+        /* After consensus: demoted secondary button */
+        <button
+          disabled={!canStart}
+          onClick={() => onDebate(selectedModels, metricsToDebate, rounds)}
+          className={`mx-auto px-4 py-2 rounded-lg text-xs font-mono flex items-center gap-2 transition-all ${
+            debating
+              ? "text-muted opacity-40 cursor-not-allowed"
+              : canStart
+                ? "text-muted border border-white/[0.08] hover:border-white/[0.15] hover:text-primary cursor-pointer"
+                : "text-muted opacity-40 cursor-not-allowed"
+          }`}
+        >
+          {debating ? (
+            <>
+              <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              Debating...
+            </>
+          ) : (
+            <>
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Not satisfied? Re-debate
+            </>
           )}
+        </button>
+      ) : (
+        /* Before results: prominent primary button */
+        <button
+          disabled={!canStart}
+          onClick={() => onDebate(selectedModels, metricsToDebate, rounds)}
+          className={`mx-auto px-6 py-3 rounded-lg text-sm font-medium flex items-center gap-2 transition-all ${
+            debating
+              ? "bg-amber-400/10 border border-amber-400/20 text-amber-300 opacity-60 cursor-not-allowed"
+              : canStart
+                ? "bg-amber-400/15 border border-amber-400/30 text-amber-300 hover:bg-amber-400/25 hover:border-amber-400/40 cursor-pointer"
+                : "bg-amber-400/10 border border-amber-400/20 text-amber-300 opacity-40 cursor-not-allowed"
+          }`}
+        >
+          {debating ? (
+            <>
+              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              Debating...
+            </>
+          ) : (
+            <>
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              </svg>
+              Start Debate
+            </>
+          )}
+        </button>
+      )}
+
+      {selectedModels.length < 2 && !debating && (
+        <p className="text-[10px] text-red-400/70 font-mono text-center">
+          Select at least 2 models to start a debate
+        </p>
+      )}
+
+      {/* Live Transcript — progress simulation */}
+      {debating && (
+        <div className="rounded-lg bg-white/[0.05] border border-amber-300/10 p-3 flex flex-col items-center gap-2 animate-fadeIn">
+          <div className="flex items-center gap-2">
+            <svg className="w-4 h-4 animate-spin text-amber-300" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+            <span className="text-xs font-mono text-amber-300">Live Transcript</span>
+          </div>
+          <p key={phaseIndex} className="text-xs text-muted font-mono animate-fadeIn text-center">
+            {phases[phaseIndex]}
+          </p>
+        </div>
+      )}
+
+      {/* Inline error with retry */}
+      {debateError && !debating && (
+        <div className="flex items-start gap-3 p-3 rounded-lg bg-red-400/10 border border-red-400/20 animate-fadeIn">
+          <svg className="w-4 h-4 text-red-400 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs text-red-300 font-medium">Debate failed</p>
+            <p className="text-[10px] text-red-400/70 font-mono mt-1 break-words">{debateError}</p>
+          </div>
+          <button
+            onClick={() => onDebate(selectedModels, metricsToDebate, rounds)}
+            className="shrink-0 px-3 py-1.5 rounded-lg text-[10px] font-medium bg-red-400/15 border border-red-400/30 text-red-300 hover:bg-red-400/25 cursor-pointer transition-colors"
+          >
+            Retry
+          </button>
         </div>
       )}
 
@@ -216,39 +326,138 @@ export default function DebateSection({
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
             </svg>
-            Debated ({debateData.rounds} round{debateData.rounds > 1 ? "s" : ""}, {debateData.models_used.length} models)
+            Consensus reached ({debateData.rounds} round{debateData.rounds > 1 ? "s" : ""}, {debateData.models_used.length} models)
           </div>
 
-          {/* Consensus grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {Object.entries(debateData.debate_results).map(([metric, rating], idx) => (
-              <div
-                key={metric}
-                className={`${reveal ? "animate-metricReveal" : "opacity-0"} flex flex-col gap-1.5 p-2.5 rounded-lg border ${ratingBg(rating)}`}
-                style={reveal ? { animationDelay: `${idx * 200}ms`, "--glow-color": ratingGlow(rating) } as React.CSSProperties : undefined}
-              >
-                <span className="text-[11px] md:text-[10px] uppercase tracking-wider text-muted">
-                  {METRIC_LABELS[metric] ?? metric}
+          {/* Consensus grid — clickable tiles */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {Object.entries(debateData.debate_results).map(([metric, rating], idx) => {
+              const isExpanded = expanded === metric;
+              const hasTranscript = debateData.transcript?.some(
+                (e) => e.metric === metric && String(e.round) === "final"
+              );
+
+              return (
+                <button
+                  key={metric}
+                  onClick={() => {
+                    if (!hasTranscript) return;
+                    setExpanded(isExpanded ? null : metric);
+                    setExpandedLlm(null);
+                    setFullReasoningLlm(null);
+                  }}
+                  className={`${reveal ? "animate-metricReveal" : "opacity-0"} flex flex-col gap-2 p-3 rounded-lg border text-left transition-colors ${
+                    isExpanded
+                      ? "border-sky-300/20 bg-sky-300/5"
+                      : `${ratingBg(rating)} ${hasTranscript ? "hover:bg-white/[0.10] cursor-pointer" : ""}`
+                  }`}
+                  style={reveal ? { animationDelay: `${idx * 200}ms`, "--glow-color": ratingGlow(rating) } as React.CSSProperties : undefined}
+                >
+                  <span className="text-[11px] md:text-[10px] uppercase tracking-wider text-muted">
+                    {METRIC_LABELS[metric] ?? metric}
+                  </span>
+                  <span className={`text-sm font-medium ${ratingColor(rating)}`}>
+                    {rating}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Expanded: final round — per-LLM collapsible boxes with two-tier reasoning */}
+          {expanded && (() => {
+            const finalEntries = getFinalEntriesForMetric(expanded);
+            if (finalEntries.length === 0) return null;
+
+            const metricChanges = debateData.position_changes.filter((c) => c.metric === expanded);
+
+            return (
+              <div className="px-3 py-3 bg-white/[0.05] border border-white/[0.08] rounded-lg text-sm animate-fadeIn">
+                <span className="text-primary font-medium">
+                  {METRIC_LABELS[expanded] ?? expanded}
                 </span>
-                <span className={`text-sm font-medium ${ratingColor(rating)}`}>
-                  {rating}
-                </span>
+                <span className="text-muted text-xs ml-2">Final Stances</span>
+
+                <div className="mt-3 flex flex-col gap-2">
+                  {finalEntries.map((entry) => {
+                    const isLlmOpen = expandedLlm === entry.llm;
+                    const change = metricChanges.find((c) => c.llm === entry.llm);
+                    const { summary, hasMore } = extractSummary(entry.content);
+                    const showingFull = fullReasoningLlm === entry.llm;
+
+                    return (
+                      <div key={entry.llm} className="rounded-lg border border-white/[0.08] overflow-hidden">
+                        {/* LLM header — clickable */}
+                        <button
+                          onClick={() => {
+                            setExpandedLlm(isLlmOpen ? null : entry.llm);
+                            setFullReasoningLlm(null);
+                          }}
+                          className="w-full flex items-center justify-between px-3 py-2.5 bg-white/[0.04] hover:bg-white/[0.07] transition-colors text-left"
+                        >
+                          <span className="text-xs font-mono text-amber-300">{entry.llm}</span>
+                          <div className="flex items-center gap-2">
+                            {change && (
+                              <span className="flex items-center gap-1.5 text-[10px] font-mono bg-white/[0.05] px-2 py-0.5 rounded">
+                                <span className={ratingColor(change.from)}>{change.from}</span>
+                                <span className="text-amber-300">&rarr;</span>
+                                <span className={ratingColor(change.to)}>{change.to}</span>
+                              </span>
+                            )}
+                            <svg
+                              className={`w-3 h-3 text-muted transition-transform ${isLlmOpen ? "rotate-180" : ""}`}
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                              strokeWidth={2}
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </div>
+                        </button>
+
+                        {/* LLM content — two-tier: summary first, then full reasoning */}
+                        {isLlmOpen && (
+                          <div className="px-3 py-2.5 border-t border-white/[0.06] animate-fadeIn">
+                            <p className="text-xs text-primary/80 leading-relaxed">{summary}</p>
+                            {hasMore && !showingFull && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setFullReasoningLlm(entry.llm);
+                                }}
+                                className="mt-2 text-[10px] font-mono text-sky-300/70 hover:text-sky-300 transition-colors cursor-pointer"
+                              >
+                                See full reasoning &rarr;
+                              </button>
+                            )}
+                            {showingFull && (
+                              <div className="mt-2 max-h-48 overflow-y-auto">
+                                <p className="text-xs text-muted whitespace-pre-wrap leading-relaxed">{entry.content}</p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-            ))}
-          </div>
+            );
+          })()}
 
-          {/* Position changes */}
+          {/* Position changes — distinct accented container */}
           {debateData.position_changes.length > 0 && (
-            <div className="border-t border-white/[0.08] pt-3">
+            <div className="border-l-2 border-amber-300/30 pl-4 py-2 ml-1 animate-fadeIn">
               <p className="text-[10px] uppercase tracking-wider text-muted mb-2 font-mono">Position Changes</p>
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-1.5">
                 {debateData.position_changes.map((change, idx) => (
                   <div key={idx} className="flex items-center gap-2 text-xs font-mono">
-                    <span className="text-muted">{change.llm}:</span>
-                    <span className="text-muted">{METRIC_LABELS[change.metric] ?? change.metric}</span>
-                    <span className={ratingColor(change.from)}>{change.from}</span>
-                    <span className="text-muted/50">&rarr;</span>
-                    <span className={ratingColor(change.to)}>{change.to}</span>
+                    <span className="text-muted/70">{change.llm}</span>
+                    <span className="text-muted/50">{METRIC_LABELS[change.metric] ?? change.metric}</span>
+                    <span className={`font-medium ${ratingColor(change.from)}`}>{change.from}</span>
+                    <span className="text-amber-300">&rarr;</span>
+                    <span className={`font-medium ${ratingColor(change.to)}`}>{change.to}</span>
                   </div>
                 ))}
               </div>
@@ -256,7 +465,7 @@ export default function DebateSection({
           )}
 
           {debateData.position_changes.length === 0 && (
-            <div className="border-t border-white/[0.08] pt-3">
+            <div className="border-l-2 border-white/[0.08] pl-4 py-2 ml-1">
               <p className="text-xs text-muted font-mono">No position changes — all models held their ground.</p>
             </div>
           )}

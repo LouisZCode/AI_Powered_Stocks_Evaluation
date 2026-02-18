@@ -93,10 +93,18 @@ export interface PositionChange {
   to: string;
 }
 
+export interface DebateTranscriptEntry {
+  round: number | "final";
+  metric: string;
+  llm: string;
+  content: string;
+}
+
 export interface DebateResponse {
   ticker: string;
   models_used: string[];
   rounds: number;
   debate_results: Record<string, string>;
   position_changes: PositionChange[];
+  transcript: DebateTranscriptEntry[];
 }
