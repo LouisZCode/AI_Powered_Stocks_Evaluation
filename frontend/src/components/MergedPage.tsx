@@ -57,8 +57,13 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
   const [mode, setMode] = useState<Mode>(initialMode);
   const [transitioning, setTransitioning] = useState<"out" | "in" | null>(null);
   const [pendingTicker, setPendingTicker] = useState(initialTicker);
-  const { phase, ingestionData, analysisData, error, modelStatuses, run, reset, progressBarRef } = useAnalysis();
+  const { phase, ingestionData, analysisData, harmonizationData, harmonizing, error, modelStatuses, run, harmonize, reset, progressBarRef } = useAnalysis();
   const isLoading = phase === "ingesting" || phase === "analyzing";
+
+  const handleHarmonize = useCallback(() => {
+    if (!analysisData) return;
+    harmonize(pendingTicker, Object.keys(analysisData.evaluations));
+  }, [harmonize, pendingTicker, analysisData]);
 
   const showHome = mode === "home" || transitioning === "out";
   const showAnalyze = mode === "analyze";
@@ -414,7 +419,12 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
             <TickerInput onSubmit={run} disabled={isLoading} initialTicker={pendingTicker} />
             <PhaseStatus phase={phase} ingestionData={ingestionData} error={error} modelStatuses={modelStatuses} progressBarRef={progressBarRef} />
             {phase === "done" && analysisData && (
-              <AnalysisResults data={analysisData} />
+              <AnalysisResults
+                data={analysisData}
+                onHarmonize={handleHarmonize}
+                harmonizing={harmonizing}
+                harmonizationData={harmonizationData}
+              />
             )}
           </GlassContainer>
         </div>

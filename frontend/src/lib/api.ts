@@ -2,6 +2,7 @@ import type {
   ModelsResponse,
   IngestionResponse,
   AnalysisResponse,
+  HarmonizationResponse,
 } from "./types";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -53,6 +54,29 @@ export async function analyzeSingleModel(
     try {
       const body = await res.json();
       if (body.detail) detail = body.detail;
+    } catch {}
+    throw new Error(detail);
+  }
+  return res.json();
+}
+
+export async function harmonizeResults(
+  ticker: string,
+  models: string[],
+  sessionId?: string
+): Promise<HarmonizationResponse> {
+  const params = sessionId ? `?session_id=${sessionId}` : "";
+  const res = await fetch(`${API}/harmonization/financials/${ticker}${params}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ models }),
+  });
+  if (!res.ok) {
+    let detail = "Harmonization failed";
+    try {
+      const body = await res.json();
+      if (body.detail) detail = body.detail;
+      if (body.error) detail = body.error;
     } catch {}
     throw new Error(detail);
   }

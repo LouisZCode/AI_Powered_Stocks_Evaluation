@@ -61,3 +61,26 @@ export interface ModelStatus {
   elapsedMs: number | null;
   error: string | null;
 }
+
+// Harmonization
+export interface HarmonizationLogEntry {
+  metric: string;
+  action: "already_aligned" | "harmonized" | "debate" | "skipped";
+  ratings?: Record<string, string | null>;
+  original?: Record<string, string | null>;
+  result?: string;
+  reason?: string;
+}
+
+export interface HarmonizationResponse {
+  ticker: string;
+  models_used: string[];
+  metrics_to_debate: string[];
+  harmonization_log: HarmonizationLogEntry[];
+  summary: {
+    total_metrics: number;
+    already_aligned: number;
+    harmonized: number;
+    needs_debate: number;
+  };
+}

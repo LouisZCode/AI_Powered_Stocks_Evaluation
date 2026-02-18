@@ -1,14 +1,20 @@
-import type { AnalysisResponse } from "@/lib/types";
+import type { AnalysisResponse, HarmonizationResponse } from "@/lib/types";
 import AnalysisCard from "./AnalysisCard";
+import HarmonizationCard from "./HarmonizationCard";
 
 interface Props {
   data: AnalysisResponse;
+  onHarmonize: () => void;
+  harmonizing: boolean;
+  harmonizationData: HarmonizationResponse | null;
 }
 
-export default function AnalysisResults({ data }: Props) {
+export default function AnalysisResults({ data, onHarmonize, harmonizing, harmonizationData }: Props) {
   const entries = Object.entries(data.evaluations);
 
   if (entries.length === 0) return null;
+
+  const canHarmonize = entries.length >= 2 && !harmonizationData;
 
   return (
     <div className="flex flex-col gap-4 animate-fadeIn">
@@ -25,27 +31,45 @@ export default function AnalysisResults({ data }: Props) {
         ))}
       </div>
 
-      {/* Harmonize button — visible but not wired yet */}
+      {/* Harmonize button */}
       <button
-        disabled
-        className="mx-auto mt-2 px-6 py-3 bg-amber-400/10 border border-amber-400/20 rounded-lg text-amber-300 text-sm font-medium opacity-60 cursor-not-allowed flex items-center gap-2"
+        disabled={!canHarmonize || harmonizing}
+        onClick={onHarmonize}
+        className={`mx-auto mt-2 px-6 py-3 rounded-lg text-sm font-medium flex items-center gap-2 transition-all ${
+          harmonizationData
+            ? "bg-emerald-400/10 border border-emerald-400/20 text-emerald-300 opacity-60 cursor-default"
+            : canHarmonize && !harmonizing
+              ? "bg-amber-400/15 border border-amber-400/30 text-amber-300 hover:bg-amber-400/25 hover:border-amber-400/40 cursor-pointer"
+              : "bg-amber-400/10 border border-amber-400/20 text-amber-300 opacity-60 cursor-not-allowed"
+        }`}
       >
-        <svg
-          className="w-4 h-4"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={2}
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
-          />
-        </svg>
-        Harmonize Results
-        <span className="text-[10px] text-muted">(coming soon)</span>
+        {harmonizing ? (
+          <>
+            <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+            Harmonizing...
+          </>
+        ) : harmonizationData ? (
+          <>
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+            Harmonized
+          </>
+        ) : (
+          <>
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            </svg>
+            Harmonize Results
+          </>
+        )}
       </button>
+
+      {/* Harmonization results */}
+      {harmonizationData && <HarmonizationCard data={harmonizationData} />}
     </div>
   );
 }

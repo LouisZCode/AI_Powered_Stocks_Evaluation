@@ -1,5 +1,5 @@
 # test by:   uvicorn main:app --reload
-# test frontend   cd frontend   and   npm run dev
+# test frontend   cd frontend   &&   npm run dev
 
 from agents.agents import AVAILABLE_MODELS
 from fastapi import FastAPI

@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useCallback, useRef } from "react";
-import { ingestFinancials, analyzeSingleModel } from "@/lib/api";
+import { ingestFinancials, analyzeSingleModel, harmonizeResults } from "@/lib/api";
 import type {
   Phase,
   IngestionResponse,
   AnalysisResponse,
+  HarmonizationResponse,
   ModelStatus,
   FinancialAnalysis,
 } from "@/lib/types";
@@ -18,16 +19,21 @@ export function useAnalysis() {
     useState<AnalysisResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [modelStatuses, setModelStatuses] = useState<ModelStatus[]>([]);
+  const [harmonizationData, setHarmonizationData] = useState<HarmonizationResponse | null>(null);
+  const [harmonizing, setHarmonizing] = useState(false);
 
   const evaluationsRef = useRef<Record<string, FinancialAnalysis>>({});
   const progressBarRef = useRef<HTMLDivElement>(null);
+  const sessionIdRef = useRef<string>("");
 
   const run = useCallback(async (ticker: string, models: string[]) => {
     const sessionId = crypto.randomUUID().replace(/-/g, "").slice(0, 8);
+    sessionIdRef.current = sessionId;
 
     setError(null);
     setIngestionData(null);
     setAnalysisData(null);
+    setHarmonizationData(null);
     evaluationsRef.current = {};
 
     // Initialize all models as pending
@@ -135,14 +141,28 @@ export function useAnalysis() {
     }
   }, []);
 
+  const harmonize = useCallback(async (ticker: string, models: string[]) => {
+    setHarmonizing(true);
+    try {
+      const result = await harmonizeResults(ticker, models, sessionIdRef.current);
+      setHarmonizationData(result);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Harmonization failed");
+    } finally {
+      setHarmonizing(false);
+    }
+  }, []);
+
   const reset = useCallback(() => {
     setPhase("idle");
     setIngestionData(null);
     setAnalysisData(null);
+    setHarmonizationData(null);
     setError(null);
     setModelStatuses([]);
     evaluationsRef.current = {};
+    sessionIdRef.current = "";
   }, []);
 
-  return { phase, ingestionData, analysisData, error, modelStatuses, run, reset, progressBarRef };
+  return { phase, ingestionData, analysisData, harmonizationData, harmonizing, error, modelStatuses, run, harmonize, reset, progressBarRef };
 }
