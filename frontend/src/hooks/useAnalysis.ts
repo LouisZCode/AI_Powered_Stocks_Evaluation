@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useCallback, useRef } from "react";
-import { ingestFinancials, analyzeSingleModel, harmonizeResults } from "@/lib/api";
+import { ingestFinancials, analyzeSingleModel, harmonizeResults, debateMetrics } from "@/lib/api";
 import type {
   Phase,
   IngestionResponse,
   AnalysisResponse,
   HarmonizationResponse,
+  DebateResponse,
   ModelStatus,
   FinancialAnalysis,
 } from "@/lib/types";
@@ -21,6 +22,9 @@ export function useAnalysis() {
   const [modelStatuses, setModelStatuses] = useState<ModelStatus[]>([]);
   const [harmonizationData, setHarmonizationData] = useState<HarmonizationResponse | null>(null);
   const [harmonizing, setHarmonizing] = useState(false);
+  const [debateData, setDebateData] = useState<DebateResponse | null>(null);
+  const [debating, setDebating] = useState(false);
+  const [debateError, setDebateError] = useState<string | null>(null);
 
   const evaluationsRef = useRef<Record<string, FinancialAnalysis>>({});
   const progressBarRef = useRef<HTMLDivElement>(null);
@@ -34,6 +38,7 @@ export function useAnalysis() {
     setIngestionData(null);
     setAnalysisData(null);
     setHarmonizationData(null);
+    setDebateData(null);
     evaluationsRef.current = {};
 
     // Initialize all models as pending
@@ -143,6 +148,8 @@ export function useAnalysis() {
 
   const harmonize = useCallback(async (ticker: string, models: string[]) => {
     setHarmonizing(true);
+    setDebateData(null);
+    setDebateError(null);
     try {
       const result = await harmonizeResults(ticker, models, sessionIdRef.current);
       setHarmonizationData(result);
@@ -153,16 +160,31 @@ export function useAnalysis() {
     }
   }, []);
 
+  const debate = useCallback(async (ticker: string, models: string[], metrics: string[], rounds: number) => {
+    setDebating(true);
+    setDebateError(null);
+    try {
+      const result = await debateMetrics(ticker, models, metrics, rounds, sessionIdRef.current);
+      setDebateData(result);
+    } catch (err) {
+      setDebateError(err instanceof Error ? err.message : "Debate failed");
+    } finally {
+      setDebating(false);
+    }
+  }, []);
+
   const reset = useCallback(() => {
     setPhase("idle");
     setIngestionData(null);
     setAnalysisData(null);
     setHarmonizationData(null);
+    setDebateData(null);
+    setDebateError(null);
     setError(null);
     setModelStatuses([]);
     evaluationsRef.current = {};
     sessionIdRef.current = "";
   }, []);
 
-  return { phase, ingestionData, analysisData, harmonizationData, harmonizing, error, modelStatuses, run, harmonize, reset, progressBarRef };
+  return { phase, ingestionData, analysisData, harmonizationData, harmonizing, debateData, debating, debateError, error, modelStatuses, run, harmonize, debate, reset, progressBarRef };
 }

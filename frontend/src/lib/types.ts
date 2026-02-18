@@ -84,3 +84,19 @@ export interface HarmonizationResponse {
     needs_debate: number;
   };
 }
+
+// Debate
+export interface PositionChange {
+  llm: string;
+  metric: string;
+  from: string;
+  to: string;
+}
+
+export interface DebateResponse {
+  ticker: string;
+  models_used: string[];
+  rounds: number;
+  debate_results: Record<string, string>;
+  position_changes: PositionChange[];
+}

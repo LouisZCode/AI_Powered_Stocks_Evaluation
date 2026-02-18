@@ -57,13 +57,17 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
   const [mode, setMode] = useState<Mode>(initialMode);
   const [transitioning, setTransitioning] = useState<"out" | "in" | null>(null);
   const [pendingTicker, setPendingTicker] = useState(initialTicker);
-  const { phase, ingestionData, analysisData, harmonizationData, harmonizing, error, modelStatuses, run, harmonize, reset, progressBarRef } = useAnalysis();
+  const { phase, ingestionData, analysisData, harmonizationData, harmonizing, debateData, debating, debateError, error, modelStatuses, run, harmonize, debate, reset, progressBarRef } = useAnalysis();
   const isLoading = phase === "ingesting" || phase === "analyzing";
 
   const handleHarmonize = useCallback(() => {
     if (!analysisData) return;
     harmonize(pendingTicker, Object.keys(analysisData.evaluations));
   }, [harmonize, pendingTicker, analysisData]);
+
+  const handleDebate = useCallback((models: string[], metrics: string[], rounds: number) => {
+    debate(pendingTicker, models, metrics, rounds);
+  }, [debate, pendingTicker]);
 
   const showHome = mode === "home" || transitioning === "out";
   const showAnalyze = mode === "analyze";
@@ -424,6 +428,10 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
                 onHarmonize={handleHarmonize}
                 harmonizing={harmonizing}
                 harmonizationData={harmonizationData}
+                onDebate={handleDebate}
+                debating={debating}
+                debateData={debateData}
+                debateError={debateError}
               />
             )}
           </GlassContainer>

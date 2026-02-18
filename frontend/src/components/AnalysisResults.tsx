@@ -1,35 +1,52 @@
 "use client";
 
 import { useRef, useEffect, useState } from "react";
-import type { AnalysisResponse, HarmonizationResponse } from "@/lib/types";
+import type { AnalysisResponse, HarmonizationResponse, DebateResponse } from "@/lib/types";
 import AnalysisCard from "./AnalysisCard";
 import HarmonizationCard from "./HarmonizationCard";
+import DebateSection from "./DebateSection";
 
 interface Props {
   data: AnalysisResponse;
   onHarmonize: () => void;
   harmonizing: boolean;
   harmonizationData: HarmonizationResponse | null;
+  onDebate: (models: string[], metrics: string[], rounds: number) => void;
+  debating: boolean;
+  debateData: DebateResponse | null;
+  debateError: string | null;
 }
 
-export default function AnalysisResults({ data, onHarmonize, harmonizing, harmonizationData }: Props) {
+export default function AnalysisResults({ data, onHarmonize, harmonizing, harmonizationData, onDebate, debating, debateData, debateError }: Props) {
   const entries = Object.entries(data.evaluations);
   const harmCardRef = useRef<HTMLDivElement>(null);
+  const debateCardRef = useRef<HTMLDivElement>(null);
   const [revealTiles, setRevealTiles] = useState(false);
+  const [revealDebateTiles, setRevealDebateTiles] = useState(false);
 
-  // Scroll first, then reveal tiles
+  // Scroll first, then reveal tiles — harmonization
   useEffect(() => {
     if (!harmonizationData) { setRevealTiles(false); return; }
-    // Scroll to card immediately (it's mounted but tiles are invisible)
     const scrollTimer = setTimeout(() => {
       harmCardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
     }, 100);
-    // After scroll settles, trigger tile animations
     const revealTimer = setTimeout(() => {
       setRevealTiles(true);
     }, 800);
     return () => { clearTimeout(scrollTimer); clearTimeout(revealTimer); };
   }, [harmonizationData]);
+
+  // Scroll first, then reveal tiles — debate
+  useEffect(() => {
+    if (!debateData) { setRevealDebateTiles(false); return; }
+    const scrollTimer = setTimeout(() => {
+      debateCardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 100);
+    const revealTimer = setTimeout(() => {
+      setRevealDebateTiles(true);
+    }, 800);
+    return () => { clearTimeout(scrollTimer); clearTimeout(revealTimer); };
+  }, [debateData]);
 
   if (entries.length === 0) return null;
 
@@ -91,6 +108,21 @@ export default function AnalysisResults({ data, onHarmonize, harmonizing, harmon
       {harmonizationData && (
         <div ref={harmCardRef}>
           <HarmonizationCard data={harmonizationData} reveal={revealTiles} />
+        </div>
+      )}
+
+      {/* Debate section — shown when harmonization flags metrics for debate */}
+      {harmonizationData && harmonizationData.metrics_to_debate.length > 0 && (
+        <div ref={debateCardRef}>
+          <DebateSection
+            modelsUsed={harmonizationData.models_used}
+            metricsToDebate={harmonizationData.metrics_to_debate}
+            onDebate={onDebate}
+            debating={debating}
+            debateData={debateData}
+            debateError={debateError}
+            reveal={revealDebateTiles}
+          />
         </div>
       )}
     </div>
