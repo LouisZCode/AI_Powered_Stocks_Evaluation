@@ -278,6 +278,7 @@ def _generate_gauge_svg(score: int, verdict: str) -> str:
     """Generate horizontal gradient bar with arrow marker."""
     position_percent = ((score + 16) / 32) * 100
     arrow_x = 10 + (position_percent / 100) * 180
+    text_x = max(45, min(arrow_x, 175))
 
     return f'''
     <svg width="220" height="65" viewBox="0 0 220 65">
@@ -292,7 +293,7 @@ def _generate_gauge_svg(score: int, verdict: str) -> str:
         </defs>
 
         <!-- Verdict text above arrow -->
-        <text x="{arrow_x}" y="14" text-anchor="middle" font-size="10" font-weight="700" fill="#1a1a1a">{verdict}</text>
+        <text x="{text_x}" y="14" text-anchor="middle" font-size="10" font-weight="700" fill="#1a1a1a">{verdict}</text>
 
         <!-- Arrow marker -->
         <polygon points="{arrow_x},28 {arrow_x - 6},18 {arrow_x + 6},18" fill="#1a1a1a"/>

@@ -55,7 +55,7 @@ export default function LlmTracker({ modelStatuses }: Props) {
             <span className="text-sm text-white/90 truncate capitalize">
               {ms.model}
             </span>
-            <StatusLabel status={ms.status} elapsedMs={ms.elapsedMs} error={ms.error} />
+            <StatusLabel status={ms.status} elapsedMs={ms.elapsedMs} startedAt={ms.startedAt} error={ms.error} />
           </div>
         </div>
       ))}
@@ -115,17 +115,24 @@ function StatusIcon({ status, index }: { status: ModelStatus["status"]; index: n
 function StatusLabel({
   status,
   elapsedMs,
+  startedAt,
   error,
 }: {
   status: ModelStatus["status"];
   elapsedMs: number | null;
+  startedAt: number | null;
   error: string | null;
 }) {
   switch (status) {
     case "pending":
       return <span className="text-xs text-white/30">waiting</span>;
     case "running":
-      return <RunningTextAnimation />;
+      return (
+        <div className="flex flex-col">
+          <RunningTextAnimation />
+          {startedAt !== null && <ElapsedTimer startedAt={startedAt} />}
+        </div>
+      );
     case "done":
       return (
         <span className="text-xs text-emerald-400/80">
@@ -139,6 +146,24 @@ function StatusLabel({
         </span>
       );
   }
+}
+
+function ElapsedTimer({ startedAt }: { startedAt: number }) {
+  const [seconds, setSeconds] = useState(0);
+
+  useEffect(() => {
+    setSeconds(Math.floor((Date.now() - startedAt) / 1000));
+    const id = setInterval(() => {
+      setSeconds(Math.floor((Date.now() - startedAt) / 1000));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [startedAt]);
+
+  return (
+    <span className="text-xs text-white/30">
+      Running… {seconds}s
+    </span>
+  );
 }
 
 function RunningTextAnimation() {

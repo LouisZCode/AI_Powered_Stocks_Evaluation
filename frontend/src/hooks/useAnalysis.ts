@@ -111,10 +111,10 @@ export function useAnalysis() {
           // Accumulate evaluations
           Object.assign(evaluationsRef.current, result.evaluations);
 
-          // Minimum display time: 8-13s so cached results still feel "worked on"
+          // Only fake-delay cached results (returned in < 3s)
           const elapsed = Date.now() - startedAt;
-          const minDelay = (8 + Math.random() * 5) * 1000;
-          if (elapsed < minDelay) {
+          if (elapsed < 3000) {
+            const minDelay = (8 + Math.random() * 5) * 1000;
             await new Promise((r) => setTimeout(r, minDelay - elapsed));
           }
 
@@ -127,6 +127,16 @@ export function useAnalysis() {
             )
           );
         } catch (err) {
+          // Parse specific error types for better messages
+          let errorMsg = "Failed";
+          if (err instanceof TypeError && err.message === "Failed to fetch") {
+            errorMsg = "Network error — backend unreachable";
+          } else if (err instanceof DOMException && err.name === "AbortError") {
+            errorMsg = "Request timed out";
+          } else if (err instanceof Error) {
+            errorMsg = err.message;
+          }
+
           // Mark error
           setModelStatuses((prev) =>
             prev.map((ms) =>
@@ -135,7 +145,7 @@ export function useAnalysis() {
                     ...ms,
                     status: "error",
                     elapsedMs: Date.now() - startedAt,
-                    error: err instanceof Error ? err.message : "Failed",
+                    error: errorMsg,
                   }
                 : ms
             )
