@@ -135,7 +135,7 @@ export default function DebateSection({
     <div className="glass-card rounded-xl p-4 md:p-6 flex flex-col gap-5 animate-fadeIn">
       {/* Header */}
       <div className="flex items-center gap-2">
-        <div className="w-2 h-2 rounded-full bg-amber-400" />
+        <div className={`w-2 h-2 rounded-full ${debateData && !debating ? "bg-emerald-400" : "bg-amber-400"}`} />
         <span className="font-mono text-sm text-primary">Debate</span>
       </div>
 
@@ -146,7 +146,7 @@ export default function DebateSection({
         </span>
         <div className="flex flex-col items-start gap-0.5">
           {metricsToDebate.map((m) => (
-            <span key={m} className="text-xs font-mono text-amber-300">- {METRIC_LABELS[m] ?? m}</span>
+            <span key={m} className="text-xs font-mono text-sky-300">- {METRIC_LABELS[m] ?? m}</span>
           ))}
         </div>
       </div>
@@ -160,7 +160,7 @@ export default function DebateSection({
               key={model}
               className={`flex items-center gap-2 px-3 py-2 md:py-1.5 rounded-lg border text-xs font-mono cursor-pointer transition-colors ${
                 selectedModels.includes(model)
-                  ? "border-amber-300/30 bg-amber-300/10 text-amber-300"
+                  ? "border-sky-300/30 bg-sky-300/10 text-sky-300"
                   : "border-white/[0.06] bg-white/[0.02] text-muted"
               } ${debating ? "opacity-40 cursor-not-allowed" : ""}`}
             >
@@ -174,13 +174,13 @@ export default function DebateSection({
               <div
                 className={`w-3.5 h-3.5 md:w-3 md:h-3 rounded-sm border flex items-center justify-center ${
                   selectedModels.includes(model)
-                    ? "border-amber-300 bg-amber-300/20"
+                    ? "border-sky-300 bg-sky-300/20"
                     : "border-white/20"
                 }`}
               >
                 {selectedModels.includes(model) && (
                   <svg
-                    className="w-2 h-2 text-amber-300"
+                    className="w-2 h-2 text-sky-300"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -405,12 +405,12 @@ export default function DebateSection({
                           }}
                           className="w-full flex items-center justify-between px-3 py-2.5 bg-white/[0.04] hover:bg-white/[0.07] transition-colors text-left"
                         >
-                          <span className="text-xs font-mono text-amber-300">{entry.llm}</span>
+                          <span className="text-xs font-mono text-sky-300">{entry.llm}</span>
                           <div className="flex items-center gap-2">
                             {change ? (
                               <span className="flex items-center gap-1.5 text-[10px] font-mono bg-white/[0.05] px-2 py-0.5 rounded">
                                 <span className={ratingColor(change.from)}>{change.from}</span>
-                                <span className="text-amber-300">&rarr;</span>
+                                <span className="text-sky-300">&rarr;</span>
                                 <span className={ratingColor(change.to)}>{change.to}</span>
                               </span>
                             ) : (() => {
@@ -471,15 +471,15 @@ export default function DebateSection({
                 {selectedModels.map((model) => {
                   const modelChanges = debateData.position_changes.filter((c) => c.llm === model);
                   return (
-                    <div key={model} className="border-l-2 border-amber-300/20 pl-3 py-1.5">
-                      <p className="text-xs font-mono text-amber-300 mb-1.5">{model}</p>
+                    <div key={model} className="border-l-2 border-sky-300/20 pl-3 py-1.5">
+                      <p className="text-xs font-mono text-sky-300 mb-1.5">{model}</p>
                       {modelChanges.length > 0 ? (
                         <div className="flex flex-col gap-1">
                           {modelChanges.map((change, idx) => (
                             <div key={idx} className="flex items-center gap-1.5 text-[11px] font-mono">
                               <span className="text-muted/60">{METRIC_LABELS[change.metric] ?? change.metric}</span>
                               <span className={ratingColor(change.from)}>{change.from}</span>
-                              <span className="text-amber-300">&rarr;</span>
+                              <span className="text-sky-300">&rarr;</span>
                               <span className={ratingColor(change.to)}>{change.to}</span>
                             </div>
                           ))}

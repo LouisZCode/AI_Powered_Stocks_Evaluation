@@ -18,9 +18,12 @@ interface Props {
   currentDebateMetric: string | null;
   onReport: () => void;
   generatingReport: boolean;
+  ticker: string;
+  onNewAnalysis: () => void;
+  onAddToWatchlist: () => void;
 }
 
-export default function AnalysisResults({ data, onHarmonize, harmonizing, harmonizationData, onDebate, debating, debateData, debateError, currentDebateMetric, onReport, generatingReport }: Props) {
+export default function AnalysisResults({ data, onHarmonize, harmonizing, harmonizationData, onDebate, debating, debateData, debateError, currentDebateMetric, onReport, generatingReport, ticker, onNewAnalysis, onAddToWatchlist }: Props) {
   const entries = Object.entries(data.evaluations);
   const harmCardRef = useRef<HTMLDivElement>(null);
   const debateCardRef = useRef<HTMLDivElement>(null);
@@ -157,34 +160,59 @@ export default function AnalysisResults({ data, onHarmonize, harmonizing, harmon
         </div>
       )}
 
-      {/* Generate Report — final step */}
+      {/* Action buttons — final step */}
       {showReport && (
-        <button
-          onClick={onReport}
-          disabled={generatingReport}
-          className={`group mx-auto mt-4 px-8 py-3.5 rounded-xl text-sm font-medium flex items-center gap-3 transition-all animate-fadeIn border border-cyan-400/30 bg-gradient-to-r from-cyan-400/15 to-sky-400/15 text-cyan-300 ${
-            generatingReport
-              ? "opacity-60 cursor-not-allowed"
-              : "cursor-pointer hover:from-cyan-400/25 hover:to-sky-400/25 hover:border-cyan-400/50 hover:shadow-[0_0_24px_-4px_rgba(34,211,238,0.25)]"
-          }`}
-        >
-          {generatingReport ? (
-            <>
-              <svg className="w-4.5 h-4.5 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-              Generating...
-            </>
-          ) : (
-            <>
-              <svg className="w-4.5 h-4.5 transition-transform group-hover:scale-110" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              Generate Report
-            </>
-          )}
-        </button>
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-5 mt-4 animate-fadeIn">
+          {/* Analyze new company */}
+          <button
+            onClick={onNewAnalysis}
+            className="group px-6 py-3 rounded-xl text-sm font-medium flex items-center gap-2.5 transition-all cursor-pointer border border-amber-400/30 bg-amber-400/10 text-amber-300 hover:bg-amber-400/20 hover:border-amber-400/45 hover:shadow-[0_0_24px_-4px_rgba(251,191,36,0.2)]"
+          >
+            <svg className="w-4 h-4 transition-transform group-hover:scale-110" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            New Analisys
+          </button>
+
+          {/* Generate Report */}
+          <button
+            onClick={onReport}
+            disabled={generatingReport}
+            className={`group px-6 py-3 rounded-xl text-sm font-medium flex items-center gap-2.5 transition-all border border-cyan-400/30 bg-gradient-to-r from-cyan-400/15 to-sky-400/15 text-cyan-300 ${
+              generatingReport
+                ? "opacity-60 cursor-not-allowed"
+                : "cursor-pointer hover:from-cyan-400/25 hover:to-sky-400/25 hover:border-cyan-400/50 hover:shadow-[0_0_24px_-4px_rgba(34,211,238,0.25)]"
+            }`}
+          >
+            {generatingReport ? (
+              <>
+                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Generating...
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4 transition-transform group-hover:scale-110" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Generate Report
+              </>
+            )}
+          </button>
+
+          {/* Add to Watchlist */}
+          <button
+            onClick={onAddToWatchlist}
+            className="group px-6 py-3 rounded-xl text-sm font-medium flex items-center gap-2.5 transition-all cursor-pointer border border-sky-400/30 bg-sky-400/10 text-sky-300 hover:bg-sky-400/20 hover:border-sky-400/45 hover:shadow-[0_0_24px_-4px_rgba(56,189,248,0.2)]"
+          >
+            <svg className="w-4 h-4 transition-transform group-hover:scale-110" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            Add {ticker} to Watchlist
+          </button>
+        </div>
       )}
     </div>
   );

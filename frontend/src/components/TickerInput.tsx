@@ -3,6 +3,29 @@
 import { useState, useEffect } from "react";
 import { getModels } from "@/lib/api";
 
+/** "claude_fast" → "Claude" */
+function formatModelName(key: string): string {
+  const name = key.split("_")[0];
+  return name.charAt(0).toUpperCase() + name.slice(1);
+}
+
+/** Group models by suffix: { "Fast Analysis": ["claude_fast", ...], "Deep Analysis": ["grok_deep", ...] } */
+function groupModels(models: string[]): { label: string; models: string[] }[] {
+  const groups: Record<string, string[]> = {};
+  for (const m of models) {
+    const parts = m.split("_");
+    const tier = parts[parts.length - 1];
+    const label = tier.charAt(0).toUpperCase() + tier.slice(1) + " Analysis";
+    if (!groups[label]) groups[label] = [];
+    groups[label].push(m);
+  }
+  // Sort: "Fast Analysis" first, then "Deep Analysis"
+  const order = ["Fast Analysis", "Deep Analysis"];
+  return Object.entries(groups)
+    .sort(([a], [b]) => (order.indexOf(a) === -1 ? 99 : order.indexOf(a)) - (order.indexOf(b) === -1 ? 99 : order.indexOf(b)))
+    .map(([label, models]) => ({ label, models: models.sort((a, b) => a.localeCompare(b)) }));
+}
+
 interface Props {
   onSubmit: (ticker: string, models: string[]) => void;
   disabled: boolean;
@@ -18,13 +41,12 @@ export default function TickerInput({ onSubmit, disabled, initialTicker = "" }: 
 
   useEffect(() => {
     getModels()
-      .then((data) => {
-        const sorted = [...data.available_models].sort((a, b) => a.localeCompare(b));
-        setAvailableModels(sorted);
-      })
+      .then((data) => setAvailableModels(data.available_models))
       .catch(() => setAvailableModels([]))
       .finally(() => setLoadingModels(false));
   }, []);
+
+  const modelGroups = groupModels(availableModels);
 
   const updateSlot = (index: number, value: string) => {
     setSlots((prev) => {
@@ -58,11 +80,11 @@ export default function TickerInput({ onSubmit, disabled, initialTicker = "" }: 
       {loadingModels ? (
         <span className="text-xs text-muted">Loading models...</span>
       ) : (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-4">
           {/* Row 1: slots 0-2 */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[0, 1, 2].map((i) => (
-              <div key={i} className="flex flex-col gap-1">
+              <div key={i} className="flex flex-col gap-1.5">
                 <label className="text-[10px] font-mono text-muted uppercase tracking-wider">
                   Model {i + 1}{i === 0 ? " *" : " (optional)"}
                 </label>
@@ -82,8 +104,12 @@ export default function TickerInput({ onSubmit, disabled, initialTicker = "" }: 
                   }}
                 >
                   <option value="" className="bg-[#0a0e14] text-white/50">— Select —</option>
-                  {availableModels.map((model) => (
-                    <option key={model} value={model} className="bg-[#0a0e14] text-white">{model}</option>
+                  {modelGroups.map((group) => (
+                    <optgroup key={group.label} label={group.label} className="bg-[#0a0e14] text-white/40">
+                      {group.models.map((model) => (
+                        <option key={model} value={model} className="bg-[#0a0e14] text-white">{formatModelName(model)}</option>
+                      ))}
+                    </optgroup>
                   ))}
                 </select>
               </div>
@@ -92,9 +118,9 @@ export default function TickerInput({ onSubmit, disabled, initialTicker = "" }: 
 
           {/* Row 2: slots 3-5 (expanded) */}
           {expanded && (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 animate-fadeIn">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 animate-fadeIn">
               {[3, 4, 5].map((i) => (
-                <div key={i} className="flex flex-col gap-1">
+                <div key={i} className="flex flex-col gap-1.5">
                   <label className="text-[10px] font-mono text-muted uppercase tracking-wider">
                     Model {i + 1} (optional)
                   </label>
@@ -115,7 +141,7 @@ export default function TickerInput({ onSubmit, disabled, initialTicker = "" }: 
                   >
                     <option value="" className="bg-[#0a0e14] text-white/50">— Select —</option>
                     {availableModels.map((model) => (
-                      <option key={model} value={model} className="bg-[#0a0e14] text-white">{model}</option>
+                      <option key={model} value={model} className="bg-[#0a0e14] text-white">{formatModelName(model)}</option>
                     ))}
                   </select>
                 </div>

@@ -114,6 +114,13 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
     window.history.pushState(null, "", "/");
   }, [reset]);
 
+  const handleNewAnalysis = useCallback(() => {
+    reset();
+    setPendingTicker("");
+    setGeneratingReport(false);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [reset]);
+
   const handleEvaluate = useCallback((ticker: string) => {
     setPendingTicker(ticker);
     setTransitioning("out");
@@ -454,7 +461,7 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
       {showAnalyze && (
         <div className={`relative z-10 ${transitioning === "in" ? "animate-analyzeEnter" : ""}`}>
           <GlassContainer>
-            <Header phase={phase} />
+            <Header />
             <TickerInput onSubmit={handleRun} disabled={isLoading} initialTicker={pendingTicker} />
             <PhaseStatus phase={phase} ingestionData={ingestionData} error={error} modelStatuses={modelStatuses} progressBarRef={progressBarRef} />
             {phase === "done" && analysisData && (
@@ -470,6 +477,9 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
                 currentDebateMetric={currentDebateMetric}
                 onReport={handleReport}
                 generatingReport={generatingReport}
+                ticker={pendingTicker}
+                onNewAnalysis={handleNewAnalysis}
+                onAddToWatchlist={() => {/* TODO: watchlist */}}
               />
             )}
           </GlassContainer>
