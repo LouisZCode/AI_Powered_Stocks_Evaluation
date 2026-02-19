@@ -36,7 +36,7 @@ export default function TickerInput({ onSubmit, disabled, initialTicker = "" }: 
   const [ticker, setTicker] = useState(initialTicker);
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [slots, setSlots] = useState<string[]>(["", "", ""]);
-  const [expanded, setExpanded] = useState(false);
+  const [extraRows, setExtraRows] = useState(0);
   const [loadingModels, setLoadingModels] = useState(true);
 
   useEffect(() => {
@@ -57,9 +57,9 @@ export default function TickerInput({ onSubmit, disabled, initialTicker = "" }: 
   };
 
   const handleExpand = () => {
-    if (!expanded) {
+    if (extraRows < 2) {
       setSlots((prev) => [...prev, "", "", ""]);
-      setExpanded(true);
+      setExtraRows((prev) => prev + 1);
     }
   };
 
@@ -116,41 +116,48 @@ export default function TickerInput({ onSubmit, disabled, initialTicker = "" }: 
             ))}
           </div>
 
-          {/* Row 2: slots 3-5 (expanded) */}
-          {expanded && (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 animate-fadeIn">
-              {[3, 4, 5].map((i) => (
-                <div key={i} className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-mono text-muted uppercase tracking-wider">
-                    Model {i + 1} (optional)
-                  </label>
-                  <select
-                    value={slots[i]}
-                    onChange={(e) => updateSlot(i, e.target.value)}
-                    disabled={disabled}
-                    className={`w-full bg-white/[0.03] border rounded-lg px-3 py-2.5 text-sm font-mono focus:outline-none focus:border-sky-300/30 transition-colors disabled:opacity-40 appearance-none cursor-pointer ${
-                      slots[i]
-                        ? "border-sky-300/30 text-sky-300"
-                        : "border-white/[0.06] text-muted"
-                    }`}
-                    style={{
-                      backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.3)' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`,
-                      backgroundRepeat: "no-repeat",
-                      backgroundPosition: "right 12px center",
-                    }}
-                  >
-                    <option value="" className="bg-[#0a0e14] text-white/50">— Select —</option>
-                    {availableModels.map((model) => (
-                      <option key={model} value={model} className="bg-[#0a0e14] text-white">{formatModelName(model)}</option>
-                    ))}
-                  </select>
-                </div>
-              ))}
-            </div>
-          )}
+          {/* Extra rows (up to 2 more = 9 total) */}
+          {Array.from({ length: extraRows }, (_, row) => {
+            const start = (row + 1) * 3;
+            return (
+              <div key={row} className="grid grid-cols-1 sm:grid-cols-3 gap-4 animate-fadeIn">
+                {[start, start + 1, start + 2].map((i) => (
+                  <div key={i} className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-mono text-muted uppercase tracking-wider">
+                      Model {i + 1} (optional)
+                    </label>
+                    <select
+                      value={slots[i]}
+                      onChange={(e) => updateSlot(i, e.target.value)}
+                      disabled={disabled}
+                      className={`w-full bg-white/[0.03] border rounded-lg px-3 py-2.5 text-sm font-mono focus:outline-none focus:border-sky-300/30 transition-colors disabled:opacity-40 appearance-none cursor-pointer ${
+                        slots[i]
+                          ? "border-sky-300/30 text-sky-300"
+                          : "border-white/[0.06] text-muted"
+                      }`}
+                      style={{
+                        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.3)' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`,
+                        backgroundRepeat: "no-repeat",
+                        backgroundPosition: "right 12px center",
+                      }}
+                    >
+                      <option value="" className="bg-[#0a0e14] text-white/50">— Select —</option>
+                      {modelGroups.map((group) => (
+                        <optgroup key={group.label} label={group.label} className="bg-[#0a0e14] text-white/40">
+                          {group.models.map((model) => (
+                            <option key={model} value={model} className="bg-[#0a0e14] text-white">{formatModelName(model)}</option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </select>
+                  </div>
+                ))}
+              </div>
+            );
+          })}
 
-          {/* + button */}
-          {!expanded && (
+          {/* + button — shows until we have all 3 rows */}
+          {extraRows < 2 && (
             <button
               type="button"
               onClick={handleExpand}
