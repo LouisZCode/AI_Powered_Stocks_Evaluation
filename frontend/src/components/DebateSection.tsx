@@ -64,6 +64,7 @@ interface Props {
   debateError: string | null;
   currentDebateMetric: string | null;
   reveal: boolean;
+  initialRatings: Record<string, Record<string, string>>;
 }
 
 export default function DebateSection({
@@ -75,6 +76,7 @@ export default function DebateSection({
   debateError,
   currentDebateMetric,
   reveal,
+  initialRatings,
 }: Props) {
   const [selectedModels, setSelectedModels] = useState<string[]>(modelsUsed);
   const [rounds, setRounds] = useState(2);
@@ -411,11 +413,14 @@ export default function DebateSection({
                                 <span className="text-amber-300">&rarr;</span>
                                 <span className={ratingColor(change.to)}>{change.to}</span>
                               </span>
-                            ) : (
-                              <span className="flex items-center gap-1.5 text-[10px] font-mono bg-white/[0.03] px-2 py-0.5 rounded text-muted">
-                                Held <span className={ratingColor(debateData.debate_results[expanded] ?? "")}>{debateData.debate_results[expanded] ?? "—"}</span>
-                              </span>
-                            )}
+                            ) : (() => {
+                              const heldRating = initialRatings[expanded]?.[entry.llm] ?? debateData.debate_results[expanded] ?? "—";
+                              return (
+                                <span className="flex items-center gap-1.5 text-[10px] font-mono bg-white/[0.03] px-2 py-0.5 rounded text-muted">
+                                  Held <span className={ratingColor(heldRating)}>{heldRating}</span>
+                                </span>
+                              );
+                            })()}
                             <svg
                               className={`w-3 h-3 text-muted transition-transform ${isLlmOpen ? "rotate-180" : ""}`}
                               fill="none"
@@ -458,27 +463,34 @@ export default function DebateSection({
             );
           })()}
 
-          {/* Position changes — distinct accented container (only after all metrics done) */}
-          {!debating && debateData.position_changes.length > 0 && (
-            <div className="border-l-2 border-amber-300/30 pl-4 py-2 ml-1 animate-fadeIn">
-              <p className="text-[10px] uppercase tracking-wider text-muted mb-2 font-mono">Position Changes</p>
-              <div className="flex flex-col gap-1.5">
-                {debateData.position_changes.map((change, idx) => (
-                  <div key={idx} className="flex items-center gap-2 text-xs font-mono">
-                    <span className="text-muted/70">{change.llm}</span>
-                    <span className="text-muted/50">{METRIC_LABELS[change.metric] ?? change.metric}</span>
-                    <span className={`font-medium ${ratingColor(change.from)}`}>{change.from}</span>
-                    <span className="text-amber-300">&rarr;</span>
-                    <span className={`font-medium ${ratingColor(change.to)}`}>{change.to}</span>
-                  </div>
-                ))}
+          {/* Position changes — per-LLM columns (only after all metrics done) */}
+          {!debating && (
+            <div className="animate-fadeIn">
+              <p className="text-[10px] uppercase tracking-wider text-muted mb-3 font-mono">Position Changes</p>
+              <div className={`grid gap-3 ${selectedModels.length === 2 ? "grid-cols-2" : "grid-cols-1 sm:grid-cols-3"}`}>
+                {selectedModels.map((model) => {
+                  const modelChanges = debateData.position_changes.filter((c) => c.llm === model);
+                  return (
+                    <div key={model} className="border-l-2 border-amber-300/20 pl-3 py-1.5">
+                      <p className="text-xs font-mono text-amber-300 mb-1.5">{model}</p>
+                      {modelChanges.length > 0 ? (
+                        <div className="flex flex-col gap-1">
+                          {modelChanges.map((change, idx) => (
+                            <div key={idx} className="flex items-center gap-1.5 text-[11px] font-mono">
+                              <span className="text-muted/60">{METRIC_LABELS[change.metric] ?? change.metric}</span>
+                              <span className={ratingColor(change.from)}>{change.from}</span>
+                              <span className="text-amber-300">&rarr;</span>
+                              <span className={ratingColor(change.to)}>{change.to}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-[11px] text-muted/50 font-mono">Maintained all its ratings</p>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-            </div>
-          )}
-
-          {!debating && debateData.position_changes.length === 0 && (
-            <div className="border-l-2 border-white/[0.08] pl-4 py-2 ml-1">
-              <p className="text-xs text-muted font-mono">No position changes — all models held their ground.</p>
             </div>
           )}
         </>

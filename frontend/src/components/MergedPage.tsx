@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect } from "react";
 import Script from "next/script";
 import { useAnalysis } from "@/hooks/useAnalysis";
+import { generateReport } from "@/lib/api";
 import ParticleCanvas from "@/components/ParticleCanvas";
 import Nav from "@/components/Nav";
 import GlassContainer from "@/components/GlassContainer";
@@ -59,6 +60,7 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
   const [pendingTicker, setPendingTicker] = useState(initialTicker);
   const { phase, ingestionData, analysisData, harmonizationData, harmonizing, debateData, debating, debateError, currentDebateMetric, error, modelStatuses, run, harmonize, debate, reset, progressBarRef } = useAnalysis();
   const isLoading = phase === "ingesting" || phase === "analyzing";
+  const [generatingReport, setGeneratingReport] = useState(false);
 
   const handleRun = useCallback((ticker: string, models: string[]) => {
     setPendingTicker(ticker);
@@ -73,6 +75,32 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
   const handleDebate = useCallback((models: string[], metrics: string[], rounds: number) => {
     debate(pendingTicker, models, metrics, rounds);
   }, [debate, pendingTicker]);
+
+  const handleReport = useCallback(async () => {
+    if (!harmonizationData || generatingReport) return;
+    setGeneratingReport(true);
+    try {
+      const models = harmonizationData.models_used;
+      const debateResults = debateData?.debate_results ?? {};
+      const positionChanges = debateData?.position_changes ?? [];
+      const rounds = debateData?.rounds ?? 0;
+
+      const blob = await generateReport(pendingTicker, models, debateResults, positionChanges, rounds);
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${pendingTicker}_report.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Report generation failed");
+    } finally {
+      setGeneratingReport(false);
+    }
+  }, [harmonizationData, debateData, pendingTicker, generatingReport]);
 
   const showHome = mode === "home" || transitioning === "out";
   const showAnalyze = mode === "analyze";
@@ -438,6 +466,8 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
                 debateData={debateData}
                 debateError={debateError}
                 currentDebateMetric={currentDebateMetric}
+                onReport={handleReport}
+                generatingReport={generatingReport}
               />
             )}
           </GlassContainer>
