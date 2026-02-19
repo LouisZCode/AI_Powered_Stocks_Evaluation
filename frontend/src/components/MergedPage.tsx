@@ -90,7 +90,8 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${pendingTicker}_report.pdf`;
+      const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+      a.download = `${pendingTicker}_FinancialReport_${date}_By_AgoraFinancials.pdf`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -275,6 +276,7 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
                   <input
                     id="hero-ticker"
                     type="text"
+                    autoComplete="off"
                     placeholder="Enter ticker symbol..."
                     className="flex-1 bg-transparent outline-none placeholder:text-white/25"
                     style={{

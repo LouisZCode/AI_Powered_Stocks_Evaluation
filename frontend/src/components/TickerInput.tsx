@@ -12,83 +12,133 @@ interface Props {
 export default function TickerInput({ onSubmit, disabled, initialTicker = "" }: Props) {
   const [ticker, setTicker] = useState(initialTicker);
   const [availableModels, setAvailableModels] = useState<string[]>([]);
-  const [selectedModels, setSelectedModels] = useState<string[]>([]);
+  const [slots, setSlots] = useState<string[]>(["", "", ""]);
+  const [expanded, setExpanded] = useState(false);
   const [loadingModels, setLoadingModels] = useState(true);
 
   useEffect(() => {
     getModels()
       .then((data) => {
-        setAvailableModels(data.available_models);
-        setSelectedModels([]);
+        const sorted = [...data.available_models].sort((a, b) => a.localeCompare(b));
+        setAvailableModels(sorted);
       })
       .catch(() => setAvailableModels([]))
       .finally(() => setLoadingModels(false));
   }, []);
 
-  const toggleModel = (model: string) => {
-    setSelectedModels((prev) =>
-      prev.includes(model) ? prev.filter((m) => m !== model) : [...prev, model]
-    );
+  const updateSlot = (index: number, value: string) => {
+    setSlots((prev) => {
+      const next = [...prev];
+      next[index] = value;
+      return next;
+    });
   };
+
+  const handleExpand = () => {
+    if (!expanded) {
+      setSlots((prev) => [...prev, "", "", ""]);
+      setExpanded(true);
+    }
+  };
+
+  const selectedModels = slots.filter((s) => s !== "");
+  const hasAtLeastOne = selectedModels.length >= 1;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const t = ticker.trim().toUpperCase();
-    if (!t || selectedModels.length === 0) return;
-    onSubmit(t, selectedModels);
+    if (!t || !hasAtLeastOne) return;
+    // Deduplicate in case user picks same model in two slots
+    onSubmit(t, [...new Set(selectedModels)]);
   };
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      {/* Model checkboxes */}
-      <div className="flex flex-wrap gap-2">
-        {loadingModels ? (
-          <span className="text-xs text-muted">Loading models...</span>
-        ) : (
-          availableModels.map((model) => (
-            <label
-              key={model}
-              className={`flex items-center gap-2 px-3 py-2 md:py-1.5 rounded-md border text-xs font-mono cursor-pointer transition-colors ${
-                selectedModels.includes(model)
-                  ? "border-sky-300/30 bg-sky-300/10 text-sky-300"
-                  : "border-white/[0.06] bg-white/[0.02] text-muted"
-              } ${disabled ? "opacity-40 cursor-not-allowed" : ""}`}
-            >
-              <input
-                type="checkbox"
-                checked={selectedModels.includes(model)}
-                onChange={() => toggleModel(model)}
-                disabled={disabled}
-                className="sr-only"
-              />
-              <div
-                className={`w-3.5 h-3.5 md:w-3 md:h-3 rounded-sm border flex items-center justify-center ${
-                  selectedModels.includes(model)
-                    ? "border-sky-300 bg-sky-300/20"
-                    : "border-white/20"
-                }`}
-              >
-                {selectedModels.includes(model) && (
-                  <svg
-                    className="w-2 h-2 text-sky-300"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={3}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
-                )}
+      {/* Model dropdowns */}
+      {loadingModels ? (
+        <span className="text-xs text-muted">Loading models...</span>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {/* Row 1: slots 0-2 */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="flex flex-col gap-1">
+                <label className="text-[10px] font-mono text-muted uppercase tracking-wider">
+                  Model {i + 1}{i === 0 ? " *" : " (optional)"}
+                </label>
+                <select
+                  value={slots[i]}
+                  onChange={(e) => updateSlot(i, e.target.value)}
+                  disabled={disabled}
+                  className={`w-full bg-white/[0.03] border rounded-lg px-3 py-2.5 text-sm font-mono focus:outline-none focus:border-sky-300/30 transition-colors disabled:opacity-40 appearance-none cursor-pointer ${
+                    slots[i]
+                      ? "border-sky-300/30 text-sky-300"
+                      : "border-white/[0.06] text-muted"
+                  }`}
+                  style={{
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.3)' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`,
+                    backgroundRepeat: "no-repeat",
+                    backgroundPosition: "right 12px center",
+                  }}
+                >
+                  <option value="" className="bg-[#0a0e14] text-white/50">— Select —</option>
+                  {availableModels.map((model) => (
+                    <option key={model} value={model} className="bg-[#0a0e14] text-white">{model}</option>
+                  ))}
+                </select>
               </div>
-              {model}
-            </label>
-          ))
-        )}
-      </div>
+            ))}
+          </div>
+
+          {/* Row 2: slots 3-5 (expanded) */}
+          {expanded && (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 animate-fadeIn">
+              {[3, 4, 5].map((i) => (
+                <div key={i} className="flex flex-col gap-1">
+                  <label className="text-[10px] font-mono text-muted uppercase tracking-wider">
+                    Model {i + 1} (optional)
+                  </label>
+                  <select
+                    value={slots[i]}
+                    onChange={(e) => updateSlot(i, e.target.value)}
+                    disabled={disabled}
+                    className={`w-full bg-white/[0.03] border rounded-lg px-3 py-2.5 text-sm font-mono focus:outline-none focus:border-sky-300/30 transition-colors disabled:opacity-40 appearance-none cursor-pointer ${
+                      slots[i]
+                        ? "border-sky-300/30 text-sky-300"
+                        : "border-white/[0.06] text-muted"
+                    }`}
+                    style={{
+                      backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.3)' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`,
+                      backgroundRepeat: "no-repeat",
+                      backgroundPosition: "right 12px center",
+                    }}
+                  >
+                    <option value="" className="bg-[#0a0e14] text-white/50">— Select —</option>
+                    {availableModels.map((model) => (
+                      <option key={model} value={model} className="bg-[#0a0e14] text-white">{model}</option>
+                    ))}
+                  </select>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* + button */}
+          {!expanded && (
+            <button
+              type="button"
+              onClick={handleExpand}
+              disabled={disabled}
+              className="mx-auto flex items-center gap-1.5 text-xs font-mono text-muted hover:text-sky-300 transition-colors disabled:opacity-40 cursor-pointer"
+            >
+              <svg className="w-4 h-4 border border-white/10 rounded-full p-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              More models
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Ticker input */}
       <div className="flex flex-col sm:flex-row gap-3">
@@ -107,7 +157,7 @@ export default function TickerInput({ onSubmit, disabled, initialTicker = "" }: 
         </div>
         <button
           type="submit"
-          disabled={disabled || !ticker.trim() || selectedModels.length === 0}
+          disabled={disabled || !ticker.trim() || !hasAtLeastOne}
           className="w-full sm:w-auto px-6 py-3 bg-sky-300/10 border border-sky-300/20 rounded-lg text-sky-300 text-sm font-medium hover:bg-sky-300/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
         >
           {disabled ? "Processing..." : "Evaluate"}

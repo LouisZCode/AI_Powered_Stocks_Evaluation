@@ -5,6 +5,19 @@
   --color-muted: rgba(255, 255, 255, 0.3);
 }
 
+::selection {
+  background: rgba(61, 216, 224, 0.3);
+  color: white;
+}
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-text-fill-color: white;
+  -webkit-box-shadow: 0 0 0 1000px transparent inset;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
 :root {
   --background: #0a0e14;
   --foreground: rgba(255, 255, 255, 0.8);
