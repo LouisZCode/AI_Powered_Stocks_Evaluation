@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request, Response
 from database.orm import DocumentChunk, LLMFinancialAnalysis, FinancialStatements
 from fastapi import Depends, HTTPException
 
@@ -21,11 +21,32 @@ class EvalRequest(BaseModel):
     models : list[str]
 
 @router.post("/analisys/financials/{ticker_symbol}")
-async def evaluate_financials(ticker_symbol : str, request : EvalRequest, session_id: str = None, db : Session = Depends(get_db)):
+async def evaluate_financials(
+    ticker_symbol : str,
+    request : EvalRequest,
+    cookie_request : Request,
+    cookie_response : Response,
+    session_id: str = None,
+    db : Session = Depends(get_db)
+    ):
+
+    raw_cookie = cookie_request.cookies.get("agora_session")
+
+    if not raw_cookie:
+        count = 1
+    else:
+        try:
+            count = int(raw_cookie) + 1
+        except (ValueError, TypeError):
+            count = 1
+    
+    if count > 3:
+        raise HTTPException(status_code=429, detail="You ran out of free analisys, please signup before continuing")
+
+
     # Start log
     log_file = ensure_log(ticker_symbol, session_id)
 
-    # 1. Get latest filing date for cache key and determine data source
     latest_filing = db.query(func.max(DocumentChunk.filing_date)).filter_by(ticker=ticker_symbol).scalar()
 
     if latest_filing is not None:
@@ -37,7 +58,6 @@ async def evaluate_financials(ticker_symbol : str, request : EvalRequest, sessio
 
     log_data_source(ticker_symbol, log_file, data_source)
 
-    # 2. Check cache: which models already analyzed this ticker with current filing?
     cached = db.query(LLMFinancialAnalysis).filter(
         and_(
             LLMFinancialAnalysis.ticker == ticker_symbol,
@@ -53,20 +73,17 @@ async def evaluate_financials(ticker_symbol : str, request : EvalRequest, sessio
     for model_name, analysis in cached_results.items():
         log_cached_result(model_name, log_file, analysis)
 
-    # 3. Fetch structured financials once (shared by all models)
     financial_context = await asyncio.to_thread(get_cached_financials, ticker_symbol, db, latest_filing)
 
     user_message = ticker_symbol
     if financial_context:
         user_message = f"{ticker_symbol}\n\n{financial_context}"
 
-    # 4. Run LLMs only for models not in cache
     MAX_ATTEMPTS = 3
     TIMEOUT_SECONDS = 120
     BACKOFF_SECONDS = [2, 4]  # wait times between retries
 
     async def run_model(model_name: str):
-        # Fail fast on bad model name (no retry)
         try:
             agent = create_financial_agent(model_name)
         except ValueError:
@@ -107,7 +124,6 @@ async def evaluate_financials(ticker_symbol : str, request : EvalRequest, sessio
     tasks = [run_model(m) for m in models_to_run]
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
-    # 4. Process fresh results and save to cache
     fresh_results = {}
     errors = []
     for result in results:
@@ -117,7 +133,6 @@ async def evaluate_financials(ticker_symbol : str, request : EvalRequest, sessio
         model_name, response = result
         fresh_results[model_name] = response
 
-    # If no fresh results AND no cached results, surface the first error
     if not fresh_results and not cached_results and errors:
         first = errors[0]
         if isinstance(first, HTTPException):
@@ -135,6 +150,14 @@ async def evaluate_financials(ticker_symbol : str, request : EvalRequest, sessio
         db.add(new_analysis)
 
     db.commit()
+
+    cookie_response.set_cookie(
+        key="agora_session",
+        value=str(count),
+        httponly=True,
+        max_age=60 * 60 * 24 * 30,
+        samesite="lax"
+    )
 
     # 5. Merge cached + fresh results
     evaluations = {**cached_results, **fresh_results}
