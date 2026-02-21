@@ -4,11 +4,11 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import FileResponse
 
 from database import get_db
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from database.orm import LLMFinancialAnalysis
 
 from pydantic import BaseModel
-from sqlalchemy import and_
+from sqlalchemy import and_, select
 
 from reports import generate_pdf
 from routes.financial_harmonization import METRICS, _get_tier, _get_majority, POSITIVE_TIER, NEGATIVE_TIER, NEUTRAL_TIER
@@ -24,18 +24,21 @@ class ReportRequest(BaseModel):
 
 
 @router.post("/report/financials/{ticker_symbol}")
-async def generate_financial_report(ticker_symbol: str, request: ReportRequest, db: Session = Depends(get_db)):
+async def generate_financial_report(ticker_symbol: str, request: ReportRequest, db: AsyncSession = Depends(get_db)):
 
     if len(request.models) < 2:
         return {"error": f"Report needs at least 2 LLMs, you only provided {len(request.models)}"}
 
     # Fetch cached analyses
-    analyses = db.query(LLMFinancialAnalysis).filter(
-        and_(
-            LLMFinancialAnalysis.ticker == ticker_symbol,
-            LLMFinancialAnalysis.llm_model.in_(request.models),
+    result = await db.execute(
+        select(LLMFinancialAnalysis).where(
+            and_(
+                LLMFinancialAnalysis.ticker == ticker_symbol,
+                LLMFinancialAnalysis.llm_model.in_(request.models),
+            )
         )
-    ).all()
+    )
+    analyses = result.scalars().all()
 
     analysis_dicts = {a.llm_model: a.analysis for a in analyses}
 

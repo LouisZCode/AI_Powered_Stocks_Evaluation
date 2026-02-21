@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, DateTime, Date, Text, UniqueConstraint
+from sqlalchemy import Column, ForeignKey, Integer, String, DateTime, Date, Text, UniqueConstraint
 from sqlalchemy.sql import func
 from sqlalchemy.orm import declarative_base
 from pgvector.sqlalchemy import Vector
@@ -8,19 +8,7 @@ from sqlalchemy.dialects.postgresql import UUID
 
 from sqlalchemy.dialects.postgresql import JSONB
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, relationship
-from config import DB_URL
-
-engine = create_engine(DB_URL)
-SessionLocal = sessionmaker(bind=engine)
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+from sqlalchemy.orm import relationship
 
 Base = declarative_base()
 
@@ -63,7 +51,7 @@ class OauthProvider(Base):
 
     user = relationship("User", back_populates="oauth_accounts")
 
-    __table_args__ = (UniqueConstraint("provider", "provider_user_id", name="uq_provider_account"))
+    __table_args__ = (UniqueConstraint("provider", "provider_user_id", name="uq_provider_account"),)
 
 
 
@@ -99,5 +87,3 @@ class FinancialStatements(Base):
     latest_filing_date = Column(Date)
     created_at = Column(DateTime, default=func.now())
 
-# Auto-create any new tables on import
-Base.metadata.create_all(engine)

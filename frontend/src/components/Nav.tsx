@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 interface Props {
   onLogoClick?: () => void;
@@ -40,20 +40,20 @@ export default function Nav({ onLogoClick }: Props) {
         </div>
       </div>
       <div className="flex items-center gap-5">
-        <Link
-          href="/analyze"
+        <a
+          href={`${API_URL}/auth/github/login`}
           className="text-white/45 transition-colors duration-200 hover:text-white/80"
           style={{ fontSize: 14 }}
         >
           Log in
-        </Link>
-        <Link
-          href="/analyze"
+        </a>
+        <a
+          href={`${API_URL}/auth/github/login`}
           className="rounded-full bg-white text-[#0a0e14] font-[500] transition-opacity duration-200 hover:opacity-85"
           style={{ fontSize: 14, padding: "8px 20px" }}
         >
           Sign up
-        </Link>
+        </a>
       </div>
     </nav>
   );

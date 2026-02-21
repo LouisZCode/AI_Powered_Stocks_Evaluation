@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends
 
 from database import get_db
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from database.orm import LLMFinancialAnalysis
 
 from pydantic import BaseModel
-from sqlalchemy import and_
+from sqlalchemy import and_, select
 
 import copy
 
@@ -50,20 +50,23 @@ class EvalRequest(BaseModel):
 
 
 @router.post("/harmonization/financials/{ticker_symbol}")
-async def harmonize_financial_analysis(ticker_symbol : str, request : EvalRequest, session_id: str = None, db : Session = Depends(get_db)):
+async def harmonize_financial_analysis(ticker_symbol : str, request : EvalRequest, session_id: str = None, db : AsyncSession = Depends(get_db)):
 
     log_file = ensure_log(f"{ticker_symbol}_harmonization", session_id)
 
     if len(request.models) < 2:
         return {"error" : f"Result harmonization need more than 2 LLMs analisys, you only added {request.models[0]}"}
-    
+
     #Check cache: which models already analyzed this ticker?
-    analyses = db.query(LLMFinancialAnalysis).filter(
-        and_(
-            LLMFinancialAnalysis.ticker == ticker_symbol,
-            LLMFinancialAnalysis.llm_model.in_(request.models),
+    result = await db.execute(
+        select(LLMFinancialAnalysis).where(
+            and_(
+                LLMFinancialAnalysis.ticker == ticker_symbol,
+                LLMFinancialAnalysis.llm_model.in_(request.models),
+            )
         )
-    ).all()
+    )
+    analyses = result.scalars().all()
 
     analysis_dicts = {a.llm_model: a.analysis for a in analyses}
 

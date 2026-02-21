@@ -105,46 +105,51 @@ def _format_statement(ticker: str, title: str, df: pd.DataFrame, rows: list) -> 
     return "\n".join(lines)
 
 
-def get_cached_financials(ticker: str, db, latest_filing) -> str:
+async def get_cached_financials(ticker: str, db, latest_filing) -> str:
     """
     DB-only read — used by the analysis route so it never calls the SEC.
     Returns the cached text block, or "" if not found.
     """
     from database.orm import FinancialStatements
-    from sqlalchemy import and_
+    from sqlalchemy import select, and_
 
-    cached = db.query(FinancialStatements).filter(
-        and_(
-            FinancialStatements.ticker == ticker,
-            FinancialStatements.latest_filing_date == latest_filing,
+    result = await db.execute(
+        select(FinancialStatements).where(
+            and_(
+                FinancialStatements.ticker == ticker,
+                FinancialStatements.latest_filing_date == latest_filing,
+            )
         )
-    ).first()
-
+    )
+    cached = result.scalar_one_or_none()
     return cached.financial_data if cached else ""
 
 
-def get_or_fetch_financials(ticker: str, db, latest_filing) -> str:
+async def get_or_fetch_financials(ticker: str, db, latest_filing) -> str:
     """
     Check DB cache first. If miss, fetch from SEC and save.
     Returns the formatted text block, or "" on failure.
     """
+    import asyncio
     from database.orm import FinancialStatements
-    from sqlalchemy import and_
+    from sqlalchemy import select, and_
     from sqlalchemy.exc import IntegrityError
 
     # 1. Check DB cache
-    cached = db.query(FinancialStatements).filter(
-        and_(
-            FinancialStatements.ticker == ticker,
-            FinancialStatements.latest_filing_date == latest_filing,
+    result = await db.execute(
+        select(FinancialStatements).where(
+            and_(
+                FinancialStatements.ticker == ticker,
+                FinancialStatements.latest_filing_date == latest_filing,
+            )
         )
-    ).first()
-
+    )
+    cached = result.scalar_one_or_none()
     if cached:
         return cached.financial_data
 
-    # 2. Cache miss — fetch from SEC
-    financial_data = get_structured_financials(ticker)
+    # 2. Cache miss — fetch from SEC (blocking I/O, offload to thread)
+    financial_data = await asyncio.to_thread(get_structured_financials, ticker)
 
     if not financial_data:
         return ""
@@ -157,15 +162,18 @@ def get_or_fetch_financials(ticker: str, db, latest_filing) -> str:
             latest_filing_date=latest_filing,
         )
         db.add(new_row)
-        db.commit()
+        await db.commit()
     except IntegrityError:
-        db.rollback()
-        cached = db.query(FinancialStatements).filter(
-            and_(
-                FinancialStatements.ticker == ticker,
-                FinancialStatements.latest_filing_date == latest_filing,
+        await db.rollback()
+        result = await db.execute(
+            select(FinancialStatements).where(
+                and_(
+                    FinancialStatements.ticker == ticker,
+                    FinancialStatements.latest_filing_date == latest_filing,
+                )
             )
-        ).first()
+        )
+        cached = result.scalar_one_or_none()
         if cached:
             return cached.financial_data
 

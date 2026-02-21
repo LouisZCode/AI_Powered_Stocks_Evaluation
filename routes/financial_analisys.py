@@ -11,8 +11,8 @@ from database.financial_statements import get_cached_financials
 import asyncio
 import time
 
-from sqlalchemy.orm import Session
-from sqlalchemy import and_, func
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import and_, func, select
 
 from logs import ensure_log, log_llm_conversation, log_llm_timing, log_llm_start, log_llm_finish, log_cached_result, log_llm_retry, log_llm_error, log_data_source
 router = APIRouter()
@@ -27,7 +27,7 @@ async def evaluate_financials(
     cookie_request : Request,
     cookie_response : Response,
     session_id: str = None,
-    db : Session = Depends(get_db)
+    db : AsyncSession = Depends(get_db)
     ):
 
     raw_cookie = cookie_request.cookies.get("agora_session")
@@ -39,7 +39,7 @@ async def evaluate_financials(
             count = int(raw_cookie) + 1
         except (ValueError, TypeError):
             count = 1
-    
+
     if count > 3:
         raise HTTPException(status_code=429, detail="You ran out of free analisys, please signup before continuing")
 
@@ -47,24 +47,31 @@ async def evaluate_financials(
     # Start log
     log_file = ensure_log(ticker_symbol, session_id)
 
-    latest_filing = db.query(func.max(DocumentChunk.filing_date)).filter_by(ticker=ticker_symbol).scalar()
+    latest_filing = (await db.execute(
+        select(func.max(DocumentChunk.filing_date)).where(DocumentChunk.ticker == ticker_symbol)
+    )).scalar()
 
     if latest_filing is not None:
         data_source = "SEC"
     else:
         # No SEC chunks — check if Yahoo data exists in financial_statements cache
-        latest_filing = db.query(func.max(FinancialStatements.latest_filing_date)).filter_by(ticker=ticker_symbol).scalar()
+        latest_filing = (await db.execute(
+            select(func.max(FinancialStatements.latest_filing_date)).where(FinancialStatements.ticker == ticker_symbol)
+        )).scalar()
         data_source = "Yahoo" if latest_filing is not None else "None"
 
     log_data_source(ticker_symbol, log_file, data_source)
 
-    cached = db.query(LLMFinancialAnalysis).filter(
-        and_(
-            LLMFinancialAnalysis.ticker == ticker_symbol,
-            LLMFinancialAnalysis.llm_model.in_(request.models),
-            LLMFinancialAnalysis.latest_filing_date == latest_filing
+    cached_result = await db.execute(
+        select(LLMFinancialAnalysis).where(
+            and_(
+                LLMFinancialAnalysis.ticker == ticker_symbol,
+                LLMFinancialAnalysis.llm_model.in_(request.models),
+                LLMFinancialAnalysis.latest_filing_date == latest_filing
+            )
         )
-    ).all()
+    )
+    cached = cached_result.scalars().all()
 
     cached_results = {c.llm_model: c.analysis for c in cached}
     models_to_run = [m for m in request.models if m not in cached_results]
@@ -73,7 +80,7 @@ async def evaluate_financials(
     for model_name, analysis in cached_results.items():
         log_cached_result(model_name, log_file, analysis)
 
-    financial_context = await asyncio.to_thread(get_cached_financials, ticker_symbol, db, latest_filing)
+    financial_context = await get_cached_financials(ticker_symbol, db, latest_filing)
 
     user_message = ticker_symbol
     if financial_context:
@@ -149,7 +156,7 @@ async def evaluate_financials(
         )
         db.add(new_analysis)
 
-    db.commit()
+    await db.commit()
 
     cookie_response.set_cookie(
         key="agora_session",
