@@ -19,16 +19,18 @@ interface Props {
   onReport: () => void;
   generatingReport: boolean;
   ticker: string;
+  companyDomain?: string | null;
   onNewAnalysis: () => void;
   onAddToWatchlist: () => void;
   isLoggedIn?: boolean;
   onFeatureGate?: (msg: string) => void;
 }
 
-export default function AnalysisResults({ data, onHarmonize, harmonizing, harmonizationData, onDebate, debating, debateData, debateError, currentDebateMetric, onReport, generatingReport, ticker, onNewAnalysis, onAddToWatchlist, isLoggedIn = true, onFeatureGate }: Props) {
+export default function AnalysisResults({ data, onHarmonize, harmonizing, harmonizationData, onDebate, debating, debateData, debateError, currentDebateMetric, onReport, generatingReport, ticker, companyDomain, onNewAnalysis, onAddToWatchlist, isLoggedIn = true, onFeatureGate }: Props) {
   const entries = Object.entries(data.evaluations);
   const harmCardRef = useRef<HTMLDivElement>(null);
   const debateCardRef = useRef<HTMLDivElement>(null);
+  const [logoError, setLogoError] = useState(false);
   const [revealTiles, setRevealTiles] = useState(false);
   const [revealDebateTiles, setRevealDebateTiles] = useState(false);
   const [showDebate, setShowDebate] = useState(false);
@@ -82,6 +84,21 @@ export default function AnalysisResults({ data, onHarmonize, harmonizing, harmon
 
   return (
     <div className="flex flex-col gap-4 animate-fadeIn">
+      {/* Company identity */}
+      <div className="flex items-center justify-center gap-3">
+        {companyDomain && !logoError ? (
+          <img
+            src={`https://logos.hunter.io/${companyDomain}`}
+            alt={`${ticker} logo`}
+            className="w-11 h-11 rounded object-contain"
+            onError={() => setLogoError(true)}
+          />
+        ) : null}
+        <span className="text-2xl font-mono font-semibold text-primary tracking-wider">
+          {ticker}
+        </span>
+      </div>
+
       <div className="flex items-center gap-2">
         <div className="w-1.5 h-1.5 rounded-full bg-sky-300" />
         <span className="text-xs text-muted uppercase tracking-wider">
@@ -136,6 +153,18 @@ export default function AnalysisResults({ data, onHarmonize, harmonizing, harmon
       {harmonizationData && (
         <div ref={harmCardRef}>
           <HarmonizationCard data={harmonizationData} reveal={revealTiles} />
+        </div>
+      )}
+
+      {/* All aligned banner — no debate needed */}
+      {harmonizationData && harmonizationData.metrics_to_debate.length === 0 && showDebate && (
+        <div className="flex items-center justify-center gap-2.5 py-4 px-5 rounded-xl border border-emerald-400/20 bg-emerald-400/5 animate-fadeIn">
+          <svg className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+          <span className="text-sm text-emerald-300 font-mono">
+            All models aligned — no debate needed
+          </span>
         </div>
       )}
 

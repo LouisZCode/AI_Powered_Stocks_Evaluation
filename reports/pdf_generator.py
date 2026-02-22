@@ -4,7 +4,9 @@ PDF Report Generator for Stock Financial Analysis.
 Uses weasyprint to convert HTML templates to PDF.
 """
 
+import base64
 import os
+import requests
 from datetime import datetime
 from pathlib import Path
 from jinja2 import Environment, FileSystemLoader
@@ -22,12 +24,26 @@ TEMPLATES_DIR = REPORTS_DIR / "templates"
 OUTPUT_DIR = REPORTS_DIR / "generated"
 
 
+def _fetch_logo_base64(domain: str) -> str | None:
+    """Fetch company logo from Hunter.io and return as base64 data URI."""
+    try:
+        resp = requests.get(f"https://logos.hunter.io/{domain}", timeout=5)
+        if resp.status_code == 200 and resp.headers.get("content-type", "").startswith("image/"):
+            content_type = resp.headers["content-type"]
+            b64 = base64.b64encode(resp.content).decode()
+            return f"data:{content_type};base64,{b64}"
+    except Exception:
+        pass
+    return None
+
+
 def generate_pdf(
     ticker: str,
     harmonize_result: dict,
     original_analyses: dict[str, dict],
     debate_result: dict = None,
     debate_rounds: int = 0,
+    domain: str = None,
 ) -> str:
     """
     Generate a PDF financial report for a ticker.
@@ -38,6 +54,7 @@ def generate_pdf(
         original_analyses: {model_name: analysis_dict} from cached analyses
         debate_result: Optional {debate_results: {metric: rating}, position_changes: [...]}
         debate_rounds: Number of debate rounds used
+        domain: Company domain for logo lookup (e.g. "apple.com")
 
     Returns:
         Path to the generated PDF file, or None if generation failed
@@ -51,6 +68,9 @@ def generate_pdf(
     report_data = _prepare_report_data(
         ticker, harmonize_result, original_analyses, debate_result, debate_rounds
     )
+
+    # Fetch logo
+    report_data['logo_data_uri'] = _fetch_logo_base64(domain) if domain else None
 
     env = Environment(loader=FileSystemLoader(TEMPLATES_DIR))
     template = env.get_template("financial_report.html")

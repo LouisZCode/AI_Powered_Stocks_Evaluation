@@ -10,6 +10,7 @@ export interface IngestionResponse {
   chunks: number;
   latest_filing_date: string | null;
   message?: string;
+  domain?: string | null;
 }
 
 export interface FinancialAnalysis {

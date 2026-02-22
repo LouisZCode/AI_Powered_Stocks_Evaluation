@@ -122,7 +122,8 @@ export async function generateReport(
   models: string[],
   debateResults: Record<string, string>,
   positionChanges: { llm: string; metric: string; from: string; to: string }[],
-  debateRounds: number
+  debateRounds: number,
+  domain?: string | null
 ): Promise<Blob> {
   const res = await fetch(`${API}/report/financials/${ticker}`, {
     method: "POST",
@@ -132,6 +133,7 @@ export async function generateReport(
       debate_results: debateResults,
       position_changes: positionChanges,
       debate_rounds: debateRounds,
+      domain: domain ?? undefined,
     }),
     credentials: "include",
   });

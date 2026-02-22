@@ -6,14 +6,30 @@ from database.yahoo_financial_statements import get_yahoo_financials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import func, select
 from datetime import date
+from urllib.parse import urlparse
 
 import asyncio
+import yfinance as yf
 
 router = APIRouter()
 
 
+def _get_company_domain(ticker: str) -> str | None:
+    """Extract company domain from yfinance info for logo lookups."""
+    try:
+        website = yf.Ticker(ticker).info.get("website")
+        if website:
+            return urlparse(website).netloc.replace("www.", "")
+    except Exception:
+        pass
+    return None
+
+
 @router.post("/ingestion/financials/{ticker_symbol}")
 async def ingest_financials(ticker_symbol: str, db: AsyncSession = Depends(get_db)):
+    # Fetch company domain in parallel (for logo lookups)
+    domain_task = asyncio.create_task(asyncio.to_thread(_get_company_domain, ticker_symbol))
+
     # Check if data already exists in DB
     existing = (await db.execute(
         select(func.count(DocumentChunk.id)).where(DocumentChunk.ticker == ticker_symbol)
@@ -25,11 +41,13 @@ async def ingest_financials(ticker_symbol: str, db: AsyncSession = Depends(get_d
         )).scalar()
         # Pre-cache structured financials so LLM routes only read from DB
         await get_or_fetch_financials(ticker_symbol, db, latest_filing)
+        domain = await domain_task
         return {
             "status": "exists",
             "ticker": ticker_symbol,
             "chunks": existing,
             "latest_filing_date": str(latest_filing) if latest_filing else None,
+            "domain": domain,
         }
 
     # Run SEC ingestion (blocking I/O, offload to thread)
@@ -52,20 +70,24 @@ async def ingest_financials(ticker_symbol: str, db: AsyncSession = Depends(get_d
             )
             db.add(new_row)
             await db.commit()
+            domain = await domain_task
             return {
                 "status": "ingested",
                 "ticker": ticker_symbol,
                 "chunks": 0,
                 "latest_filing_date": str(filing_date),
                 "source": "yahoo",
+                "domain": domain,
             }
 
+        domain = await domain_task
         return {
             "status": "not_found",
             "ticker": ticker_symbol,
             "chunks": 0,
             "latest_filing_date": None,
             "message": f"No SEC filings found for '{ticker_symbol}'. It may not be a US-listed company.",
+            "domain": domain,
         }
 
     latest_filing = (await db.execute(
@@ -73,9 +95,11 @@ async def ingest_financials(ticker_symbol: str, db: AsyncSession = Depends(get_d
     )).scalar()
     # Pre-cache structured financials so LLM routes only read from DB
     await get_or_fetch_financials(ticker_symbol, db, latest_filing)
+    domain = await domain_task
     return {
         "status": "ingested",
         "ticker": ticker_symbol,
         "chunks": new_count,
         "latest_filing_date": str(latest_filing) if latest_filing else None,
+        "domain": domain,
     }

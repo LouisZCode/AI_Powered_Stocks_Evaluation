@@ -94,7 +94,7 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
       const positionChanges = debateData?.position_changes ?? [];
       const rounds = debateData?.rounds ?? 0;
 
-      const blob = await generateReport(pendingTicker, models, debateResults, positionChanges, rounds);
+      const blob = await generateReport(pendingTicker, models, debateResults, positionChanges, rounds, ingestionData?.domain);
 
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -110,7 +110,7 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
     } finally {
       setGeneratingReport(false);
     }
-  }, [harmonizationData, debateData, pendingTicker, generatingReport]);
+  }, [harmonizationData, debateData, pendingTicker, generatingReport, ingestionData]);
 
   const showHome = mode === "home" || transitioning === "out";
   const showAnalyze = mode === "analyze";
@@ -489,6 +489,7 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
                 onReport={handleReport}
                 generatingReport={generatingReport}
                 ticker={pendingTicker}
+                companyDomain={ingestionData?.domain ?? null}
                 onNewAnalysis={handleNewAnalysis}
                 onAddToWatchlist={() => {/* TODO: watchlist */}}
                 isLoggedIn={isLoggedIn}

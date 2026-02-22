@@ -21,6 +21,7 @@ class ReportRequest(BaseModel):
     debate_results: dict[str, str] = {}
     position_changes: list[dict] = []
     debate_rounds: int = 0
+    domain: str | None = None
 
 
 @router.post("/report/financials/{ticker_symbol}")
@@ -64,6 +65,7 @@ async def generate_financial_report(ticker_symbol: str, request: ReportRequest, 
         original_analyses=analysis_dicts,
         debate_result=debate_result,
         debate_rounds=request.debate_rounds,
+        domain=request.domain,
     )
 
     if not pdf_path:
