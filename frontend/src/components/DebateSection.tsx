@@ -234,7 +234,13 @@ export default function DebateSection({
         /* After consensus: demoted secondary button */
         <button
           disabled={!canStart}
-          onClick={() => onDebate(selectedModels, metricsToDebate, rounds)}
+          onClick={() => {
+            if (!isLoggedIn) {
+              onFeatureGate?.("To re-debate for refined accuracy, please sign up for free.");
+              return;
+            }
+            onDebate(selectedModels, metricsToDebate, rounds);
+          }}
           className={`mx-auto px-4 py-2 rounded-lg text-xs font-mono flex items-center gap-2 transition-all ${
             debating
               ? "text-muted opacity-40 cursor-not-allowed"

@@ -4,9 +4,9 @@ export default function Header() {
   return (
     <div className="flex items-center gap-3">
       <Link href="/" className="text-lg font-light tracking-wider text-primary">
-        Agora - Financial Strenght Analisys
+        Financial Strength Analysis
       </Link>
-      <span className="text-xs font-mono text-muted">v2.0</span>
+      <span className="text-xs font-mono text-muted">v1.0</span>
     </div>
   );
 }
