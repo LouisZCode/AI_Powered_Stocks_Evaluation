@@ -206,6 +206,15 @@ body {
   animation: metricReveal 0.9s ease-out forwards;
 }
 
+/* Backdrop fade-in for modals */
+@keyframes backdropIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.animate-backdropIn {
+  animation: backdropIn 0.2s ease-out;
+}
+
 /* Staggered delays for homepage hero */
 .delay-0   { animation-delay: 0s; }
 .delay-100 { animation-delay: 0.1s; }
