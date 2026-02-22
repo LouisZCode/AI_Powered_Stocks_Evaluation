@@ -11,6 +11,7 @@ import Header from "@/components/Header";
 import TickerInput from "@/components/TickerInput";
 import PhaseStatus from "@/components/PhaseStatus";
 import AnalysisResults from "@/components/AnalysisResults";
+import RateLimitModal from "@/components/RateLimitModal";
 
 /* ── Quick-try ticker chips ── */
 const QUICK_TICKERS = ["AAPL", "MSFT", "NVDA", "TSLA", "GOOG"];
@@ -58,7 +59,7 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
   const [mode, setMode] = useState<Mode>(initialMode);
   const [transitioning, setTransitioning] = useState<"out" | "in" | null>(null);
   const [pendingTicker, setPendingTicker] = useState(initialTicker);
-  const { phase, ingestionData, analysisData, harmonizationData, harmonizing, debateData, debating, debateError, currentDebateMetric, error, modelStatuses, run, harmonize, debate, reset, progressBarRef } = useAnalysis();
+  const { phase, ingestionData, analysisData, harmonizationData, harmonizing, debateData, debating, debateError, currentDebateMetric, error, rateLimited, modelStatuses, run, harmonize, debate, reset, progressBarRef } = useAnalysis();
   const isLoading = phase === "ingesting" || phase === "analyzing";
   const [generatingReport, setGeneratingReport] = useState(false);
 
@@ -463,7 +464,9 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
           <GlassContainer>
             <Header />
             <TickerInput onSubmit={handleRun} disabled={isLoading} initialTicker={pendingTicker} />
-            <PhaseStatus phase={phase} ingestionData={ingestionData} error={error} modelStatuses={modelStatuses} progressBarRef={progressBarRef} />
+            {!rateLimited && (
+              <PhaseStatus phase={phase} ingestionData={ingestionData} error={error} modelStatuses={modelStatuses} progressBarRef={progressBarRef} />
+            )}
             {phase === "done" && analysisData && (
               <AnalysisResults
                 data={analysisData}
@@ -485,6 +488,8 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
           </GlassContainer>
         </div>
       )}
+
+      <RateLimitModal isOpen={rateLimited} onClose={reset} />
     </>
   );
 }

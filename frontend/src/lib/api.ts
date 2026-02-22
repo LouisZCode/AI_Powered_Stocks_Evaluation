@@ -9,7 +9,7 @@ import type {
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 export async function getModels(): Promise<ModelsResponse> {
-  const res = await fetch(`${API}/models/`);
+  const res = await fetch(`${API}/models/`, { credentials: "include" });
   if (!res.ok) throw new Error("Failed to fetch models");
   return res.json();
 }
@@ -19,6 +19,7 @@ export async function ingestFinancials(
 ): Promise<IngestionResponse> {
   const res = await fetch(`${API}/ingestion/financials/${ticker}`, {
     method: "POST",
+    credentials: "include",
   });
   if (!res.ok) throw new Error(`Ingestion failed for ${ticker}`);
   return res.json();
@@ -34,6 +35,7 @@ export async function analyzeFinancials(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ models }),
+    credentials: "include",
   });
   if (!res.ok) throw new Error(`Analysis failed for ${ticker}`);
   return res.json();
@@ -49,8 +51,12 @@ export async function analyzeSingleModel(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ models: [model] }),
+    credentials: "include",
   });
   if (!res.ok) {
+    if (res.status === 429) {
+      throw new Error("__RATE_LIMITED__");
+    }
     let detail = `Analysis failed for ${model}`;
     try {
       const body = await res.json();
@@ -71,6 +77,7 @@ export async function harmonizeResults(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ models }),
+    credentials: "include",
   });
   if (!res.ok) {
     let detail = "Harmonization failed";
@@ -96,6 +103,7 @@ export async function debateMetrics(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ models, metrics, rounds }),
+    credentials: "include",
   });
   if (!res.ok) {
     let detail = "Debate failed";
@@ -125,6 +133,7 @@ export async function generateReport(
       position_changes: positionChanges,
       debate_rounds: debateRounds,
     }),
+    credentials: "include",
   });
   if (!res.ok) {
     let detail = "Report generation failed";

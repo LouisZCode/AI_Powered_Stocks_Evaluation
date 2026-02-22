@@ -14,6 +14,8 @@ import time
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import and_, func, select
 
+from dependencies import get_current_user
+
 from logs import ensure_log, log_llm_conversation, log_llm_timing, log_llm_start, log_llm_finish, log_cached_result, log_llm_retry, log_llm_error, log_data_source
 router = APIRouter()
 
@@ -27,21 +29,24 @@ async def evaluate_financials(
     cookie_request : Request,
     cookie_response : Response,
     session_id: str = None,
+    user = Depends(get_current_user),
     db : AsyncSession = Depends(get_db)
     ):
 
-    raw_cookie = cookie_request.cookies.get("agora_session")
+    if not user:
 
-    if not raw_cookie:
-        count = 1
-    else:
-        try:
-            count = int(raw_cookie) + 1
-        except (ValueError, TypeError):
+        raw_cookie = cookie_request.cookies.get("agora_session")
+
+        if not raw_cookie:
             count = 1
+        else:
+            try:
+                count = int(raw_cookie) + 1
+            except (ValueError, TypeError):
+                count = 1
 
-    if count > 3:
-        raise HTTPException(status_code=429, detail="You ran out of free analisys, please signup before continuing")
+        if count > 3:
+            raise HTTPException(status_code=429, detail="You ran out of free analisys, please signup before continuing")
 
 
     # Start log
@@ -158,13 +163,14 @@ async def evaluate_financials(
 
     await db.commit()
 
-    cookie_response.set_cookie(
-        key="agora_session",
-        value=str(count),
-        httponly=True,
-        max_age=60 * 60 * 24 * 30,
-        samesite="lax"
-    )
+    if not user:
+        cookie_response.set_cookie(
+            key="agora_session",
+            value=str(count),
+            httponly=True,
+            max_age=60 * 60 * 24 * 30,
+            samesite="lax"
+        )
 
     # 5. Merge cached + fresh results
     evaluations = {**cached_results, **fresh_results}

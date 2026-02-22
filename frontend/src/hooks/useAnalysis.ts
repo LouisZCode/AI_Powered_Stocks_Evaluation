@@ -38,6 +38,7 @@ export function useAnalysis() {
   const [debating, setDebating] = useState(false);
   const [debateError, setDebateError] = useState<string | null>(null);
   const [currentDebateMetric, setCurrentDebateMetric] = useState<string | null>(null);
+  const [rateLimited, setRateLimited] = useState(false);
 
   const evaluationsRef = useRef<Record<string, FinancialAnalysis>>({});
   const progressBarRef = useRef<HTMLDivElement>(null);
@@ -48,6 +49,7 @@ export function useAnalysis() {
     sessionIdRef.current = sessionId;
 
     setError(null);
+    setRateLimited(false);
     setIngestionData(null);
     setAnalysisData(null);
     setHarmonizationData(null);
@@ -160,7 +162,18 @@ export function useAnalysis() {
         setAnalysisData({ evaluations: { ...evaluationsRef.current } });
         setPhase("done");
       } else {
-        setError("All model analyses failed");
+        // Check if all failures were rate-limit (429)
+        setModelStatuses((prev) => {
+          const isRateLimited = prev.every(
+            (ms) => ms.status === "error" && ms.error === "__RATE_LIMITED__"
+          );
+          if (isRateLimited) {
+            setRateLimited(true);
+          } else {
+            setError("All model analyses failed");
+          }
+          return prev;
+        });
         setPhase("error");
       }
     } catch (err) {
@@ -212,10 +225,11 @@ export function useAnalysis() {
     setDebateData(null);
     setDebateError(null);
     setError(null);
+    setRateLimited(false);
     setModelStatuses([]);
     evaluationsRef.current = {};
     sessionIdRef.current = "";
   }, []);
 
-  return { phase, ingestionData, analysisData, harmonizationData, harmonizing, debateData, debating, debateError, currentDebateMetric, error, modelStatuses, run, harmonize, debate, reset, progressBarRef };
+  return { phase, ingestionData, analysisData, harmonizationData, harmonizing, debateData, debating, debateError, currentDebateMetric, error, rateLimited, modelStatuses, run, harmonize, debate, reset, progressBarRef };
 }
