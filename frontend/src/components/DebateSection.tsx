@@ -65,6 +65,8 @@ interface Props {
   currentDebateMetric: string | null;
   reveal: boolean;
   initialRatings: Record<string, Record<string, string>>;
+  isLoggedIn?: boolean;
+  onFeatureGate?: (msg: string) => void;
 }
 
 export default function DebateSection({
@@ -77,6 +79,8 @@ export default function DebateSection({
   currentDebateMetric,
   reveal,
   initialRatings,
+  isLoggedIn = true,
+  onFeatureGate,
 }: Props) {
   const [selectedModels, setSelectedModels] = useState<string[]>(modelsUsed);
   const [rounds, setRounds] = useState(2);
@@ -201,7 +205,14 @@ export default function DebateSection({
             Rounds:
             <select
               value={rounds}
-              onChange={(e) => setRounds(Number(e.target.value))}
+              onChange={(e) => {
+                const val = Number(e.target.value);
+                if (val > 2 && !isLoggedIn) {
+                  onFeatureGate?.("To increase debate rounds for deeper accuracy, please sign up for free.");
+                  return;
+                }
+                setRounds(val);
+              }}
               disabled={debating}
               className="bg-white/[0.05] border border-white/[0.1] rounded-lg px-2 py-1 text-xs text-primary font-mono outline-none focus:border-amber-300/30 disabled:opacity-40"
             >

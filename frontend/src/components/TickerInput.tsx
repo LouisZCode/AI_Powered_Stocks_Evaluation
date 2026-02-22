@@ -30,9 +30,11 @@ interface Props {
   onSubmit: (ticker: string, models: string[]) => void;
   disabled: boolean;
   initialTicker?: string;
+  isLoggedIn?: boolean;
+  onFeatureGate?: (msg: string) => void;
 }
 
-export default function TickerInput({ onSubmit, disabled, initialTicker = "" }: Props) {
+export default function TickerInput({ onSubmit, disabled, initialTicker = "", isLoggedIn = true, onFeatureGate }: Props) {
   const [ticker, setTicker] = useState(initialTicker);
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [slots, setSlots] = useState<string[]>(["", "", ""]);
@@ -49,6 +51,10 @@ export default function TickerInput({ onSubmit, disabled, initialTicker = "" }: 
   const modelGroups = groupModels(availableModels);
 
   const updateSlot = (index: number, value: string) => {
+    if (value.endsWith("_deep") && !isLoggedIn) {
+      onFeatureGate?.("To use Deep Analysis agents, please sign up for free.");
+      return;
+    }
     setSlots((prev) => {
       const next = [...prev];
       next[index] = value;
@@ -57,6 +63,10 @@ export default function TickerInput({ onSubmit, disabled, initialTicker = "" }: 
   };
 
   const handleExpand = () => {
+    if (!isLoggedIn) {
+      onFeatureGate?.("To analyze with more models simultaneously, please sign up for free.");
+      return;
+    }
     if (extraRows < 2) {
       setSlots((prev) => [...prev, "", "", ""]);
       setExtraRows((prev) => prev + 1);

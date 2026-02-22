@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect } from "react";
 import Script from "next/script";
 import { useAnalysis } from "@/hooks/useAnalysis";
+import { useAuth } from "@/hooks/useAuth";
 import { generateReport } from "@/lib/api";
 import ParticleCanvas from "@/components/ParticleCanvas";
 import Nav from "@/components/Nav";
@@ -12,6 +13,7 @@ import TickerInput from "@/components/TickerInput";
 import PhaseStatus from "@/components/PhaseStatus";
 import AnalysisResults from "@/components/AnalysisResults";
 import RateLimitModal from "@/components/RateLimitModal";
+import FeatureGateModal from "@/components/FeatureGateModal";
 
 /* ── Quick-try ticker chips ── */
 const QUICK_TICKERS = ["AAPL", "MSFT", "NVDA", "TSLA", "GOOG"];
@@ -60,8 +62,14 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
   const [transitioning, setTransitioning] = useState<"out" | "in" | null>(null);
   const [pendingTicker, setPendingTicker] = useState(initialTicker);
   const { phase, ingestionData, analysisData, harmonizationData, harmonizing, debateData, debating, debateError, currentDebateMetric, error, rateLimited, modelStatuses, run, harmonize, debate, reset, progressBarRef } = useAnalysis();
+  const { user, isLoggedIn } = useAuth();
   const isLoading = phase === "ingesting" || phase === "analyzing";
   const [generatingReport, setGeneratingReport] = useState(false);
+  const [gateMessage, setGateMessage] = useState<string | null>(null);
+
+  const handleFeatureGate = useCallback((msg: string) => {
+    setGateMessage(msg);
+  }, []);
 
   const handleRun = useCallback((ticker: string, models: string[]) => {
     setPendingTicker(ticker);
@@ -155,7 +163,7 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
       />
 
       <div className="relative z-10">
-        <Nav onLogoClick={handleGoHome} />
+        <Nav onLogoClick={handleGoHome} user={user} />
       </div>
 
       {/* ── HOME VIEW ── */}
@@ -463,7 +471,7 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
         <div className={`relative z-10 ${transitioning === "in" ? "animate-analyzeEnter" : ""}`}>
           <GlassContainer>
             <Header />
-            <TickerInput onSubmit={handleRun} disabled={isLoading} initialTicker={pendingTicker} />
+            <TickerInput onSubmit={handleRun} disabled={isLoading} initialTicker={pendingTicker} isLoggedIn={isLoggedIn} onFeatureGate={handleFeatureGate} />
             {!rateLimited && (
               <PhaseStatus phase={phase} ingestionData={ingestionData} error={error} modelStatuses={modelStatuses} progressBarRef={progressBarRef} />
             )}
@@ -483,6 +491,8 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
                 ticker={pendingTicker}
                 onNewAnalysis={handleNewAnalysis}
                 onAddToWatchlist={() => {/* TODO: watchlist */}}
+                isLoggedIn={isLoggedIn}
+                onFeatureGate={handleFeatureGate}
               />
             )}
           </GlassContainer>
@@ -490,6 +500,7 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
       )}
 
       <RateLimitModal isOpen={rateLimited} onClose={reset} />
+      <FeatureGateModal isOpen={!!gateMessage} onClose={() => setGateMessage(null)} message={gateMessage ?? ""} />
     </>
   );
 }

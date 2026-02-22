@@ -5,9 +5,10 @@ import AuthModal from "./AuthModal";
 
 interface Props {
   onLogoClick?: () => void;
+  user?: { name: string; email: string; tier: string } | null;
 }
 
-export default function Nav({ onLogoClick }: Props) {
+export default function Nav({ onLogoClick, user }: Props) {
   const [authModal, setAuthModal] = useState<"login" | "signup" | null>(null);
 
   return (
@@ -44,20 +45,28 @@ export default function Nav({ onLogoClick }: Props) {
           </div>
         </div>
         <div className="flex items-center gap-5">
-          <button
-            onClick={() => setAuthModal("login")}
-            className="text-white/45 transition-colors duration-200 hover:text-white/80 cursor-pointer"
-            style={{ fontSize: 14, background: "none", border: "none", padding: 0 }}
-          >
-            Log in
-          </button>
-          <button
-            onClick={() => setAuthModal("signup")}
-            className="rounded-full bg-white text-[#0a0e14] font-[500] transition-opacity duration-200 hover:opacity-85 cursor-pointer"
-            style={{ fontSize: 14, padding: "8px 20px", border: "none" }}
-          >
-            Sign up
-          </button>
+          {user ? (
+            <span className="text-white/70 text-sm font-mono">
+              {user.name}
+            </span>
+          ) : (
+            <>
+              <button
+                onClick={() => setAuthModal("login")}
+                className="text-white/45 transition-colors duration-200 hover:text-white/80 cursor-pointer"
+                style={{ fontSize: 14, background: "none", border: "none", padding: 0 }}
+              >
+                Log in
+              </button>
+              <button
+                onClick={() => setAuthModal("signup")}
+                className="rounded-full bg-white text-[#0a0e14] font-[500] transition-opacity duration-200 hover:opacity-85 cursor-pointer"
+                style={{ fontSize: 14, padding: "8px 20px", border: "none" }}
+              >
+                Sign up
+              </button>
+            </>
+          )}
         </div>
       </nav>
 

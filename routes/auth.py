@@ -16,6 +16,8 @@ from database.orm import User, OauthProvider
 from jose import jwt
 from datetime import datetime, timedelta, timezone
 
+from dependencies.oauth import get_current_user
+
 
 load_dotenv()
 
@@ -108,3 +110,13 @@ async def auth_callback(request: Request, db: AsyncSession = Depends(get_db)):
 
 
     return response
+
+@router.get("/me/")
+async def get_me(user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    if not user:
+        raise HTTPException(status_code=401, detail="Not Authenticated")
+    return {
+        "name" : user.name,
+        "email" : user.email,
+        "tier" : user.tier
+    }

@@ -21,9 +21,11 @@ interface Props {
   ticker: string;
   onNewAnalysis: () => void;
   onAddToWatchlist: () => void;
+  isLoggedIn?: boolean;
+  onFeatureGate?: (msg: string) => void;
 }
 
-export default function AnalysisResults({ data, onHarmonize, harmonizing, harmonizationData, onDebate, debating, debateData, debateError, currentDebateMetric, onReport, generatingReport, ticker, onNewAnalysis, onAddToWatchlist }: Props) {
+export default function AnalysisResults({ data, onHarmonize, harmonizing, harmonizationData, onDebate, debating, debateData, debateError, currentDebateMetric, onReport, generatingReport, ticker, onNewAnalysis, onAddToWatchlist, isLoggedIn = true, onFeatureGate }: Props) {
   const entries = Object.entries(data.evaluations);
   const harmCardRef = useRef<HTMLDivElement>(null);
   const debateCardRef = useRef<HTMLDivElement>(null);
@@ -149,6 +151,8 @@ export default function AnalysisResults({ data, onHarmonize, harmonizing, harmon
             debateError={debateError}
             currentDebateMetric={currentDebateMetric}
             reveal={revealDebateTiles}
+            isLoggedIn={isLoggedIn}
+            onFeatureGate={onFeatureGate}
             initialRatings={
               Object.fromEntries(
                 harmonizationData.harmonization_log
@@ -204,7 +208,13 @@ export default function AnalysisResults({ data, onHarmonize, harmonizing, harmon
 
           {/* Add to Watchlist */}
           <button
-            onClick={onAddToWatchlist}
+            onClick={() => {
+              if (!isLoggedIn) {
+                onFeatureGate?.("To add tickers to your watchlist, please sign up for free.");
+                return;
+              }
+              onAddToWatchlist();
+            }}
             className="group px-6 py-3 rounded-xl text-sm font-medium flex items-center gap-2.5 transition-all cursor-pointer border border-sky-400/30 bg-sky-400/10 text-sky-300 hover:bg-sky-400/20 hover:border-sky-400/45 hover:shadow-[0_0_24px_-4px_rgba(56,189,248,0.2)]"
           >
             <svg className="w-4 h-4 transition-transform group-hover:scale-110" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
