@@ -3,6 +3,8 @@
 import { useState } from "react";
 import AuthModal from "./AuthModal";
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
 interface Props {
   onLogoClick?: () => void;
   user?: { name: string; email: string; tier: string } | null;
@@ -10,7 +12,6 @@ interface Props {
 
 export default function Nav({ onLogoClick, user }: Props) {
   const [authModal, setAuthModal] = useState<"login" | "signup" | null>(null);
-
   return (
     <>
       <nav
@@ -31,24 +32,26 @@ export default function Nav({ onLogoClick, user }: Props) {
           >
             Agora
           </button>
-          <div className="hidden md:flex items-center gap-5">
-            {["Personal", "Business", "Company"].map((item) => (
-              <a
-                key={item}
-                href="#"
-                className="text-white/45 transition-colors duration-200 hover:text-white/80"
-                style={{ fontSize: 14 }}
-              >
-                {item}
-              </a>
-            ))}
-          </div>
         </div>
         <div className="flex items-center gap-5">
           {user ? (
-            <span className="text-white/70 text-sm font-mono">
-              {user.name}
-            </span>
+            <>
+              <span className="text-white/70 text-sm font-mono">
+                {user.name}
+              </span>
+              <a
+                href={`${API_URL}/auth/logout`}
+                className="flex items-center justify-center rounded-full border border-white/[0.08] text-white/40 hover:text-white/80 hover:border-white/20 transition-all duration-200 cursor-pointer"
+                style={{ width: 32, height: 32 }}
+                title="Log out"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                  <polyline points="16 17 21 12 16 7" />
+                  <line x1="21" y1="12" x2="9" y2="12" />
+                </svg>
+              </a>
+            </>
           ) : (
             <>
               <button

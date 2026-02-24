@@ -191,6 +191,13 @@ async def google_auth_callback(request: Request, db: AsyncSession = Depends(get_
     return response
 
 
+@router.get("/logout")
+async def logout():
+    response = RedirectResponse(url=FRONTEND_URL)
+    response.delete_cookie(key="agora_token")
+    return response
+
+
 @router.get("/me/")
 async def get_me(user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     if not user:
