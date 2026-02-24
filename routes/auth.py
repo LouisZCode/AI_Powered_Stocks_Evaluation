@@ -33,6 +33,14 @@ oauth.register(
     client_kwargs={"scope": "user:email"},
 )
 
+oauth.register(
+    name="google",
+    client_id=os.getenv("GOOGLE_CLIENT_ID"),
+    client_secret=os.getenv("GOOGLE_CLIENT_SECRET"),
+    server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
+    client_kwargs={"scope": "openid email profile"},
+)
+
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 JWT_SECRET = os.getenv("JWT_SECRET")
 JWT_ALGORITHM = "HS256"
@@ -79,9 +87,15 @@ async def auth_callback(request: Request, db: AsyncSession = Depends(get_db)):
         user_result = await db.execute(select(User).where(User.id == oauth_account.user_id))
         user = user_result.scalar_one()
     else:
-        user = User(email=email, name=name)
-        db.add(user)
-        await db.flush()
+        user_result = await db.execute(select(User).where(User.email == email))
+        existing_user = user_result.scalar_one_or_none()
+
+        if existing_user:
+            user = existing_user
+        else:
+            user = User(email=email, name=name)
+            db.add(user)
+            await db.flush()
 
         oauth_account = OauthProvider(
             user_id=user.id,
@@ -110,6 +124,72 @@ async def auth_callback(request: Request, db: AsyncSession = Depends(get_db)):
 
 
     return response
+
+
+@router.get("/google/login")
+async def google_login(request: Request):
+    redirect_uri = request.url_for("google_auth_callback")
+    return await oauth.google.authorize_redirect(request, redirect_uri)
+
+
+@router.get("/google/callback", name="google_auth_callback")
+async def google_auth_callback(request: Request, db: AsyncSession = Depends(get_db)):
+    token = await oauth.google.authorize_access_token(request)
+    user_info = token.get("userinfo")
+
+    google_id = str(user_info["sub"])
+    email = user_info["email"]
+    name = user_info.get("name", "")
+
+    result = await db.execute(
+        select(OauthProvider).where(
+            OauthProvider.provider == "google",
+            OauthProvider.provider_user_id == google_id,
+        )
+    )
+    oauth_account = result.scalar_one_or_none()
+
+    if oauth_account:
+        user_result = await db.execute(select(User).where(User.id == oauth_account.user_id))
+        user = user_result.scalar_one()
+    else:
+        user_result = await db.execute(select(User).where(User.email == email))
+        existing_user = user_result.scalar_one_or_none()
+
+        if existing_user:
+            user = existing_user
+        else:
+            user = User(email=email, name=name)
+            db.add(user)
+            await db.flush()
+
+        oauth_account = OauthProvider(
+            user_id=user.id,
+            provider="google",
+            provider_user_id=google_id,
+        )
+        db.add(oauth_account)
+        await db.commit()
+        await db.refresh(user)
+
+    jwt_payload = {
+        "sub": str(user.id),
+        "exp": datetime.now(timezone.utc) + timedelta(days=JWT_EXPIRATION_DAYS),
+    }
+
+    jwt_token = jwt.encode(jwt_payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+    response = RedirectResponse(url=FRONTEND_URL)
+    response.set_cookie(
+        key="agora_token",
+        value=jwt_token,
+        httponly=True,
+        max_age=60 * 60 * 24 * JWT_EXPIRATION_DAYS,
+        samesite="lax",
+    )
+
+    return response
+
 
 @router.get("/me/")
 async def get_me(user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
