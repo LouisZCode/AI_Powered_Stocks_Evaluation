@@ -95,7 +95,7 @@ export default function TickerInput({ onSubmit, disabled, initialTicker = "", is
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[0, 1, 2].map((i) => (
               <div key={i} className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-mono text-muted uppercase tracking-wider">
+                <label className="text-[13px] font-mono text-white uppercase tracking-wider">
                   Model {i + 1}{i === 0 ? " *" : " (optional)"}
                 </label>
                 <select
@@ -133,7 +133,7 @@ export default function TickerInput({ onSubmit, disabled, initialTicker = "", is
               <div key={row} className="grid grid-cols-1 sm:grid-cols-3 gap-4 animate-fadeIn">
                 {[start, start + 1, start + 2].map((i) => (
                   <div key={i} className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-mono text-muted uppercase tracking-wider">
+                    <label className="text-[13px] font-mono text-white uppercase tracking-wider">
                       Model {i + 1} (optional)
                     </label>
                     <select
@@ -172,7 +172,7 @@ export default function TickerInput({ onSubmit, disabled, initialTicker = "", is
               type="button"
               onClick={handleExpand}
               disabled={disabled}
-              className="mx-auto flex items-center gap-1.5 text-xs font-mono text-muted hover:text-sky-300 transition-colors disabled:opacity-40 cursor-pointer"
+              className="mx-auto flex items-center gap-1.5 text-[18px] font-mono text-white hover:text-sky-300 transition-colors disabled:opacity-40 cursor-pointer"
             >
               <svg className="w-4 h-4 border border-white/10 rounded-full p-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />

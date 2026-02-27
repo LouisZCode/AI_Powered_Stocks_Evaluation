@@ -3,6 +3,17 @@
 import { useState, useMemo, useEffect } from "react";
 import type { DebateResponse, DebateTranscriptEntry } from "@/lib/types";
 
+/** Extract rating and clean reasoning from transcript content. */
+function parseContent(content: string): { rating: string | null; reasoning: string } {
+  const ratingMatch = content.match(/(?:FINAL|UPDATED) RATING:\s*(\w+)/i);
+  const rating = ratingMatch ? ratingMatch[1] : null;
+  const reasoning = content
+    .replace(/(?:FINAL|UPDATED) RATING:\s*\w+\n?/gi, "")
+    .replace(/FINAL REASON:\s*/gi, "")
+    .trim();
+  return { rating, reasoning };
+}
+
 const METRIC_LABELS: Record<string, string> = {
   revenue: "Revenue",
   net_income: "Net Income",
@@ -451,11 +462,17 @@ export default function DebateSection({
                         </button>
 
                         {/* LLM reasoning — shown directly on expand */}
-                        {isLlmOpen && (
-                          <div className="px-3 py-2.5 border-t border-white/[0.06] animate-fadeIn max-h-48 overflow-y-auto">
-                            <p className="text-xs text-white whitespace-pre-wrap leading-relaxed">{entry.content}</p>
-                          </div>
-                        )}
+                        {isLlmOpen && (() => {
+                          const { rating, reasoning } = parseContent(entry.content);
+                          return (
+                            <div className="px-3 py-2.5 border-t border-white/[0.06] animate-fadeIn max-h-48 overflow-y-auto">
+                              {rating && (
+                                <p className={`text-xs font-semibold uppercase mb-1.5 ${ratingColor(rating)}`}>{rating}</p>
+                              )}
+                              <p className="text-xs text-white whitespace-pre-wrap leading-relaxed">{reasoning}</p>
+                            </div>
+                          );
+                        })()}
                       </div>
                     );
                   })}

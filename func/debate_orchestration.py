@@ -174,10 +174,11 @@ async def _debate_single_metric(
 
     consensus = _get_majority_rating(final_ratings)
 
-    # Track position changes: compare initial vs final (skip if already tracked in review rounds)
-    models_already_changed = {c['llm'] for c in changes if c['metric'] == metric}
+    # Track NET position changes: compare initial vs final for all models
+    # This replaces any intermediate review-round changes with the true net result
+    changes = []
     for model_name, response in final_results:
-        if model_name in models_already_changed or response is None:
+        if response is None:
             continue
         final_rating = _extract_final_rating(response) or positions[model_name]['rating']
         initial = initial_ratings[model_name]
