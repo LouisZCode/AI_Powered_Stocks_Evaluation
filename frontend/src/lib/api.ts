@@ -88,6 +88,23 @@ export async function deductTokens(models: string[]): Promise<{ token_balance: n
   return res.json();
 }
 
+export async function deductDebateTokens(
+  metricsCount: number,
+  rounds: number
+): Promise<{ token_balance: number; cost: number }> {
+  const res = await fetch(`${API}/auth/deduct-debate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ metrics_count: metricsCount, rounds }),
+    credentials: "include",
+  });
+  if (!res.ok) {
+    if (res.status === 402) throw new Error("__INSUFFICIENT_TOKENS__");
+    throw new Error("Debate token deduction failed");
+  }
+  return res.json();
+}
+
 export async function harmonizeResults(
   ticker: string,
   models: string[],

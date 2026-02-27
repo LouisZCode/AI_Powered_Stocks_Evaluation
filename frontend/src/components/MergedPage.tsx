@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect } from "react";
 import Script from "next/script";
 import { useAnalysis } from "@/hooks/useAnalysis";
 import { useAuth } from "@/hooks/useAuth";
-import { generateReport, deductTokens } from "@/lib/api";
+import { generateReport, deductTokens, deductDebateTokens } from "@/lib/api";
 import ParticleCanvas from "@/components/ParticleCanvas";
 import Nav from "@/components/Nav";
 import GlassContainer from "@/components/GlassContainer";
@@ -94,9 +94,20 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
     harmonize(pendingTicker, Object.keys(analysisData.evaluations));
   }, [harmonize, pendingTicker, analysisData]);
 
-  const handleDebate = useCallback((models: string[], metrics: string[], rounds: number) => {
+  const handleDebate = useCallback(async (models: string[], metrics: string[], rounds: number) => {
+    if (debateData && isLoggedIn) {
+      try {
+        await deductDebateTokens(metrics.length, rounds);
+        refreshUser();
+      } catch (err) {
+        if (err instanceof Error && err.message === "__INSUFFICIENT_TOKENS__") {
+          setGateMessage("Insufficient tokens for re-debate.");
+        }
+        return;
+      }
+    }
     debate(pendingTicker, models, metrics, rounds);
-  }, [debate, pendingTicker]);
+  }, [debateData, isLoggedIn, debate, pendingTicker, refreshUser]);
 
   const handleReport = useCallback(async () => {
     if (!harmonizationData || generatingReport) return;

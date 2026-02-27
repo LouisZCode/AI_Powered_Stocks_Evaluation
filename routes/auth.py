@@ -232,6 +232,39 @@ async def deduct_tokens(
     return {"token_balance": locked_user.token_balance}
 
 
+class DeductDebateRequest(PydanticBaseModel):
+    metrics_count: int
+    rounds: int
+
+@router.post("/deduct-debate")
+async def deduct_debate_tokens(
+    request: DeductDebateRequest,
+    user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    cost = request.metrics_count * request.rounds  # Formula A
+
+    result = await db.execute(
+        select(User).where(User.id == user.id).with_for_update()
+    )
+    locked_user = result.scalar_one()
+
+    if locked_user.token_balance < cost:
+        raise HTTPException(
+            status_code=402,
+            detail=f"Insufficient tokens. Need {cost}, have {locked_user.token_balance}."
+        )
+
+    locked_user.token_balance -= cost
+    await db.commit()
+    await db.refresh(locked_user)
+
+    return {"token_balance": locked_user.token_balance, "cost": cost}
+
+
 @router.get("/me/")
 async def get_me(user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     if not user:
