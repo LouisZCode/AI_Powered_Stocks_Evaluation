@@ -23,22 +23,26 @@ const STEPS = [
   {
     num: "01",
     title: "Enter a Ticker",
-    desc: "Type any public company stock symbol to begin your research.",
+    desc: "Any public company, any time.",
+    icon: "M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z",
   },
   {
     num: "02",
     title: "Gather SEC Data",
-    desc: "We pull the latest 10-K and 10-Q filings directly from EDGAR.",
+    desc: "Latest 10-K and 10-Q from EDGAR.",
+    icon: "M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m.75 12l3 3m0 0l3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z",
   },
   {
     num: "03",
     title: "Multi-LLM Analysis",
-    desc: "Multiple AI models independently analyze the financials in parallel.",
+    desc: "Multiple models analyze in parallel.",
+    icon: "M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714a2.25 2.25 0 00.659 1.591L19 14.5M14.25 3.104c.251.023.501.05.75.082M19 14.5l-2.47 4.932A2.25 2.25 0 0114.52 21H9.48a2.25 2.25 0 01-2.01-1.568L5 14.5m14 0H5",
   },
   {
     num: "04",
     title: "Consensus Report",
-    desc: "Models debate and harmonize into one actionable evaluation.",
+    desc: "One clear, actionable verdict.",
+    icon: "M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z",
   },
 ];
 
@@ -194,32 +198,6 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
               className="ml-auto flex flex-1 w-full lg:w-[60%] flex-col items-center lg:items-start justify-center text-center lg:text-left px-5 md:px-8 lg:px-12 lg:pr-16 pb-10 md:pb-15"
               style={{ maxWidth: 820 }}
             >
-              {/* Badge */}
-              <div
-                className="animate-fadeInDown"
-                style={{ marginBottom: 36 }}
-              >
-                <span
-                  className="inline-flex items-center gap-2 rounded-full"
-                  style={{
-                    fontSize: 11,
-                    letterSpacing: 3,
-                    textTransform: "uppercase",
-                    fontFamily: "var(--font-mono)",
-                    color: "#3dd8e0",
-                    border: "1px solid rgba(61, 216, 224, 0.2)",
-                    background: "rgba(61, 216, 224, 0.08)",
-                    padding: "8px 18px",
-                  }}
-                >
-                  <span
-                    className="animate-pulseDot inline-block rounded-full"
-                    style={{ width: 6, height: 6, background: "#34d399" }}
-                  />
-                  Live &middot; Multi-LLM Analysis
-                </span>
-              </div>
-
               {/* Headline */}
               <h1
                 className="animate-fadeInUp delay-0 font-[700] text-white text-[32px] md:text-[46px] lg:text-[58px]"
@@ -367,7 +345,7 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
             </section>
           </div>
 
-          {/* White section: How It Works + Trust Bar */}
+          {/* How It Works + Trust Bar */}
           <section
             className={`relative z-10 ${transitioning === "out" ? "animate-fadeOut" : ""}`}
             style={{
@@ -376,32 +354,32 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
             }}
           >
             <div
-              className="mx-auto w-full px-5 md:px-8 lg:px-12 pt-12 md:pt-20 pb-8 md:pb-10"
-              style={{ maxWidth: 820 }}
+              className="mx-auto w-full px-5 md:px-8 lg:px-16 pt-12 md:pt-20 pb-8 md:pb-10"
+              style={{ maxWidth: 960 }}
             >
               <p
                 className="text-center"
                 style={{
-                  fontSize: 11,
+                  fontSize: 14,
                   letterSpacing: 3,
                   textTransform: "uppercase",
                   fontFamily: "var(--font-mono)",
-                  color: "rgba(10, 14, 20, 0.3)",
+                  color: "#000000",
                   marginBottom: 40,
                 }}
               >
                 How it works
               </p>
 
-              <div
-                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3"
-              >
+              {/* Cards — grid on mobile, flex with connectors on desktop */}
+              <div className="grid grid-cols-2 lg:hidden gap-6">
                 {STEPS.map((step) => (
                   <div
                     key={step.num}
+                    className="flex flex-col items-center justify-center text-center"
                     style={{
-                      background: "rgba(10, 14, 20, 0.03)",
-                      border: "1px solid rgba(10, 14, 20, 0.08)",
+                      background: "#1a1f2b",
+                      border: "1px solid rgba(255, 255, 255, 0.08)",
                       borderRadius: 12,
                       padding: "24px 20px",
                     }}
@@ -409,25 +387,71 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
                     <div
                       style={{
                         fontFamily: "var(--font-mono)",
-                        fontSize: 14,
-                        fontWeight: 700,
+                        fontSize: 15,
                         color: "rgba(61, 216, 224, 0.6)",
-                        marginBottom: 12,
+                        marginBottom: 10,
                       }}
                     >
                       {step.num}
                     </div>
+                    <svg width={28} height={28} fill="none" viewBox="0 0 24 24" style={{ marginBottom: 14 }}>
+                      <path d={step.icon} stroke="#3dd8e0" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7 }} />
+                    </svg>
                     <div
                       className="font-[600]"
-                      style={{ fontSize: 14, marginBottom: 6, color: "#0a0e14" }}
+                      style={{ fontSize: 18, marginBottom: 6, color: "#ffffff" }}
                     >
                       {step.title}
                     </div>
                     <div
                       className="font-[300]"
-                      style={{ fontSize: 12, color: "rgba(10, 14, 20, 0.55)", lineHeight: 1.5 }}
+                      style={{ fontSize: 15, color: "rgba(255, 255, 255, 0.5)", lineHeight: 1.5 }}
                     >
                       {step.desc}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop: flex row with dashed connectors */}
+              <div className="hidden lg:flex items-stretch gap-8">
+                {STEPS.map((step, i) => (
+                  <div key={step.num} className="flex items-stretch" style={{ flex: 1 }}>
+                    <div
+                      className="flex flex-col items-center justify-center text-center"
+                      style={{
+                        flex: 1,
+                        background: "#1a1f2b",
+                        border: "1px solid rgba(255, 255, 255, 0.08)",
+                        borderRadius: 12,
+                        padding: "24px 20px",
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontFamily: "var(--font-mono)",
+                          fontSize: 12,
+                          color: "rgba(61, 216, 224, 0.6)",
+                          marginBottom: 10,
+                        }}
+                      >
+                        {step.num}
+                      </div>
+                      <svg width={28} height={28} fill="none" viewBox="0 0 24 24" style={{ marginBottom: 14 }}>
+                        <path d={step.icon} stroke="#3dd8e0" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7 }} />
+                      </svg>
+                      <div
+                        className="font-[600]"
+                        style={{ fontSize: 18, marginBottom: 6, color: "#ffffff" }}
+                      >
+                        {step.title}
+                      </div>
+                      <div
+                        className="font-[300]"
+                        style={{ fontSize: 15, color: "rgba(255, 255, 255, 0.5)", lineHeight: 1.5 }}
+                      >
+                        {step.desc}
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -436,7 +460,7 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
 
             {/* Trust Bar */}
             <div
-              className="mx-auto flex flex-wrap items-center justify-center gap-4 md:gap-8 px-5 md:px-8 lg:px-12 pt-6 md:pt-8 pb-10 md:pb-15 mt-2 md:mt-5"
+              className="mx-auto flex flex-wrap items-center justify-center gap-4 md:gap-8 px-5 md:px-8 lg:px-12 pt-3 pb-8"
             >
               {TRUST_ITEMS.map((item) => (
                 <span
@@ -444,17 +468,17 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
                   className="flex items-center gap-2"
                   style={{
                     fontFamily: "var(--font-mono)",
-                    fontSize: 10,
+                    fontSize: 15,
                     letterSpacing: 1,
                     textTransform: "uppercase",
-                    color: "rgba(10, 14, 20, 0.3)",
+                    color: "#000000",
                   }}
                 >
                   <span
                     className="inline-block rounded-full"
                     style={{
-                      width: 4,
-                      height: 4,
+                      width: 6,
+                      height: 6,
                       background: "rgba(61, 216, 224, 0.5)",
                     }}
                   />
