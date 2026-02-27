@@ -65,7 +65,7 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
   const [mode, setMode] = useState<Mode>(initialMode);
   const [transitioning, setTransitioning] = useState<"out" | "in" | null>(null);
   const [pendingTicker, setPendingTicker] = useState(initialTicker);
-  const { phase, ingestionData, analysisData, harmonizationData, harmonizing, debateData, debating, debateError, currentDebateMetric, error, rateLimited, modelStatuses, run, harmonize, debate, reset, progressBarRef } = useAnalysis();
+  const { phase, ingestionData, analysisData, harmonizationData, harmonizing, debateData, debating, debateError, currentDebateMetric, error, rateLimited, modelStatuses, run, harmonize, debate, reset, cancel, cancelModel, progressBarRef } = useAnalysis();
   const { user, isLoggedIn } = useAuth();
   const isLoading = phase === "ingesting" || phase === "analyzing";
   const [generatingReport, setGeneratingReport] = useState(false);
@@ -497,7 +497,7 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
             <Header />
             <TickerInput onSubmit={handleRun} disabled={isLoading} initialTicker={pendingTicker} isLoggedIn={isLoggedIn} onFeatureGate={handleFeatureGate} />
             {!rateLimited && (
-              <PhaseStatus phase={phase} ingestionData={ingestionData} error={error} modelStatuses={modelStatuses} progressBarRef={progressBarRef} />
+              <PhaseStatus phase={phase} ingestionData={ingestionData} error={error} modelStatuses={modelStatuses} progressBarRef={progressBarRef} onCancel={cancel} onCancelModel={cancelModel} />
             )}
             {phase === "done" && analysisData && (
               <AnalysisResults
@@ -518,6 +518,7 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
                 onAddToWatchlist={() => {/* TODO: watchlist */}}
                 isLoggedIn={isLoggedIn}
                 onFeatureGate={handleFeatureGate}
+                modelStatuses={modelStatuses}
               />
             )}
           </GlassContainer>

@@ -15,11 +15,13 @@ export async function getModels(): Promise<ModelsResponse> {
 }
 
 export async function ingestFinancials(
-  ticker: string
+  ticker: string,
+  signal?: AbortSignal
 ): Promise<IngestionResponse> {
   const res = await fetch(`${API}/ingestion/financials/${ticker}`, {
     method: "POST",
     credentials: "include",
+    signal,
   });
   if (!res.ok) throw new Error(`Ingestion failed for ${ticker}`);
   return res.json();
@@ -44,7 +46,8 @@ export async function analyzeFinancials(
 export async function analyzeSingleModel(
   ticker: string,
   model: string,
-  sessionId?: string
+  sessionId?: string,
+  signal?: AbortSignal
 ): Promise<AnalysisResponse> {
   const params = sessionId ? `?session_id=${sessionId}` : "";
   const res = await fetch(`${API}/analisys/financials/${ticker}${params}`, {
@@ -52,6 +55,7 @@ export async function analyzeSingleModel(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ models: [model] }),
     credentials: "include",
+    signal,
   });
   if (!res.ok) {
     if (res.status === 429) {

@@ -38,9 +38,10 @@ const ANALYSIS_PHRASES = [
 
 interface Props {
   modelStatuses: ModelStatus[];
+  onCancelModel?: (model: string) => void;
 }
 
-export default function LlmTracker({ modelStatuses }: Props) {
+export default function LlmTracker({ modelStatuses, onCancelModel }: Props) {
   if (modelStatuses.length === 0) return null;
 
   return (
@@ -48,15 +49,33 @@ export default function LlmTracker({ modelStatuses }: Props) {
       {modelStatuses.map((ms, idx) => (
         <div
           key={ms.model}
-          className="flex items-center gap-3 px-3 md:px-4 py-4 md:py-6 bg-white/[0.10] border border-white/[0.10] rounded-lg animate-fadeIn overflow-hidden"
+          className="flex flex-col gap-3 px-3 md:px-4 py-4 md:py-5 bg-white/[0.10] border border-white/[0.10] rounded-lg animate-fadeIn overflow-hidden"
         >
-          <StatusIcon status={ms.status} index={idx} />
-          <div className="flex flex-col min-w-0">
-            <span className="text-sm text-white/90 truncate capitalize">
-              {ms.model}
-            </span>
-            <StatusLabel status={ms.status} elapsedMs={ms.elapsedMs} startedAt={ms.startedAt} error={ms.error} />
+          <div className="flex items-center gap-3">
+            <StatusIcon status={ms.status} index={idx} />
+            <div className="flex flex-col min-w-0 flex-1">
+              <span className="text-sm text-white/90 truncate capitalize">
+                {ms.model}
+              </span>
+              <StatusLabel status={ms.status} elapsedMs={ms.elapsedMs} startedAt={ms.startedAt} error={ms.error} />
+            </div>
           </div>
+          {onCancelModel && (ms.status === "running" || ms.status === "pending") && (
+            <button
+              type="button"
+              onClick={() => onCancelModel(ms.model)}
+              className="self-start text-[10px] cursor-pointer rounded-full transition-all duration-200 hover:bg-red-500/20 hover:border-red-400/40 hover:text-red-300"
+              style={{
+                fontFamily: "var(--font-mono)",
+                color: "rgba(248,113,113,0.5)",
+                background: "rgba(248,113,113,0.06)",
+                border: "1px solid rgba(248,113,113,0.12)",
+                padding: "2px 10px",
+              }}
+            >
+              Cancel
+            </button>
+          )}
         </div>
       ))}
     </div>
@@ -109,6 +128,10 @@ function StatusIcon({ status, index }: { status: ModelStatus["status"]; index: n
           <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
         </svg>
       );
+    case "cancelled":
+      return (
+        <div className="w-4 h-4 rounded-full border-2 border-white/10 flex-shrink-0" />
+      );
   }
 }
 
@@ -145,6 +168,8 @@ function StatusLabel({
           {error ?? "failed"}
         </span>
       );
+    case "cancelled":
+      return <span className="text-xs text-white/25">cancelled</span>;
   }
 }
 

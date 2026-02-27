@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useState } from "react";
-import type { AnalysisResponse, HarmonizationResponse, DebateResponse } from "@/lib/types";
+import type { AnalysisResponse, HarmonizationResponse, DebateResponse, ModelStatus } from "@/lib/types";
 import AnalysisCard from "./AnalysisCard";
 import HarmonizationCard from "./HarmonizationCard";
 import DebateSection from "./DebateSection";
@@ -24,10 +24,12 @@ interface Props {
   onAddToWatchlist: () => void;
   isLoggedIn?: boolean;
   onFeatureGate?: (msg: string) => void;
+  modelStatuses?: ModelStatus[];
 }
 
-export default function AnalysisResults({ data, onHarmonize, harmonizing, harmonizationData, onDebate, debating, debateData, debateError, currentDebateMetric, onReport, generatingReport, ticker, companyDomain, onNewAnalysis, onAddToWatchlist, isLoggedIn = true, onFeatureGate }: Props) {
+export default function AnalysisResults({ data, onHarmonize, harmonizing, harmonizationData, onDebate, debating, debateData, debateError, currentDebateMetric, onReport, generatingReport, ticker, companyDomain, onNewAnalysis, onAddToWatchlist, isLoggedIn = true, onFeatureGate, modelStatuses = [] }: Props) {
   const entries = Object.entries(data.evaluations);
+  const cancelledModels = modelStatuses.filter((ms) => ms.status === "cancelled");
   const harmCardRef = useRef<HTMLDivElement>(null);
   const debateCardRef = useRef<HTMLDivElement>(null);
   const [logoError, setLogoError] = useState(false);
@@ -109,6 +111,15 @@ export default function AnalysisResults({ data, onHarmonize, harmonizing, harmon
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {entries.map(([model, analysis], idx) => (
           <AnalysisCard key={model} model={model} analysis={analysis} index={idx} />
+        ))}
+        {cancelledModels.map((ms) => (
+          <div
+            key={ms.model}
+            className="flex flex-col items-center justify-center gap-2 px-6 py-10 rounded-xl border border-white/[0.06] bg-white/[0.03]"
+          >
+            <span className="text-sm text-white/40 capitalize font-mono">{ms.model}</span>
+            <span className="text-xs text-white/25">Analysis cancelled by user</span>
+          </div>
         ))}
       </div>
 

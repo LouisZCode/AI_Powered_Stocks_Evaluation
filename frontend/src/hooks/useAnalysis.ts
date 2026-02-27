@@ -43,8 +43,20 @@ export function useAnalysis() {
   const evaluationsRef = useRef<Record<string, FinancialAnalysis>>({});
   const progressBarRef = useRef<HTMLDivElement>(null);
   const sessionIdRef = useRef<string>("");
+  // Global controller for ingestion phase; per-model controllers for analysis
+  const ingestionAbortRef = useRef<AbortController | null>(null);
+  const modelAbortMap = useRef<Map<string, AbortController>>(new Map());
 
   const run = useCallback(async (ticker: string, models: string[]) => {
+    // Abort any previous run
+    ingestionAbortRef.current?.abort();
+    modelAbortMap.current.forEach((c) => c.abort());
+    modelAbortMap.current.clear();
+
+    const ingestionController = new AbortController();
+    ingestionAbortRef.current = ingestionController;
+    const ingestionSignal = ingestionController.signal;
+
     const sessionId = crypto.randomUUID().replace(/-/g, "").slice(0, 8);
     sessionIdRef.current = sessionId;
 
@@ -67,11 +79,19 @@ export function useAnalysis() {
       }))
     );
 
+    // Abortable delay helper
+    const abortableDelay = (ms: number, signal: AbortSignal) =>
+      new Promise<void>((resolve, reject) => {
+        if (signal.aborted) return reject(signal.reason);
+        const timer = setTimeout(resolve, ms);
+        signal.addEventListener("abort", () => { clearTimeout(timer); reject(signal.reason); }, { once: true });
+      });
+
     // Phase 1: Ingestion
     setPhase("ingesting");
     try {
       const ingestionStart = Date.now();
-      const ingestion = await ingestFinancials(ticker);
+      const ingestion = await ingestFinancials(ticker, ingestionSignal);
       setIngestionData(ingestion);
 
       if (ingestion.status === "not_found") {
@@ -84,7 +104,7 @@ export function useAnalysis() {
       const ingestionElapsed = Date.now() - ingestionStart;
       const minIngestion = (6 + Math.random() * 6) * 1000;
       if (ingestionElapsed < minIngestion) {
-        await new Promise((r) => setTimeout(r, minIngestion - ingestionElapsed));
+        await abortableDelay(minIngestion - ingestionElapsed, ingestionSignal);
       }
 
       // Signal RAF loop to stop, then fill bar to 100%
@@ -92,12 +112,16 @@ export function useAnalysis() {
         progressBarRef.current.dataset.done = "true";
         progressBarRef.current.style.width = "100%";
       }
-      await new Promise((r) => setTimeout(r, 700));
+      await abortableDelay(700, ingestionSignal);
 
-      // Phase 2: Analysis — fire N parallel single-model requests
+      // Phase 2: Analysis — fire N parallel single-model requests, each with own controller
       setPhase("analyzing");
 
       const promises = models.map(async (model) => {
+        const controller = new AbortController();
+        modelAbortMap.current.set(model, controller);
+        const signal = controller.signal;
+
         const startedAt = Date.now();
 
         // Mark running
@@ -108,7 +132,7 @@ export function useAnalysis() {
         );
 
         try {
-          const result = await analyzeSingleModel(ticker, model, sessionId);
+          const result = await analyzeSingleModel(ticker, model, sessionId, signal);
 
           // Accumulate evaluations
           Object.assign(evaluationsRef.current, result.evaluations);
@@ -117,7 +141,7 @@ export function useAnalysis() {
           const elapsed = Date.now() - startedAt;
           if (elapsed < 3000) {
             const minDelay = (8 + Math.random() * 5) * 1000;
-            await new Promise((r) => setTimeout(r, minDelay - elapsed));
+            await abortableDelay(minDelay - elapsed, signal);
           }
 
           // Mark done
@@ -129,6 +153,20 @@ export function useAnalysis() {
             )
           );
         } catch (err) {
+          // If this model was cancelled, mark as cancelled (not error)
+          if (signal.aborted) {
+            // Remove any already-accumulated evaluation for this model (in-memory only)
+            delete evaluationsRef.current[model];
+            setModelStatuses((prev) =>
+              prev.map((ms) =>
+                ms.model === model
+                  ? { ...ms, status: "cancelled", elapsedMs: Date.now() - startedAt, error: null }
+                  : ms
+              )
+            );
+            return;
+          }
+
           // Parse specific error types for better messages
           let errorMsg = "Failed";
           if (err instanceof TypeError && err.message === "Failed to fetch") {
@@ -152,6 +190,8 @@ export function useAnalysis() {
                 : ms
             )
           );
+        } finally {
+          modelAbortMap.current.delete(model);
         }
       });
 
@@ -162,21 +202,36 @@ export function useAnalysis() {
         setAnalysisData({ evaluations: { ...evaluationsRef.current } });
         setPhase("done");
       } else {
-        // Check if all failures were rate-limit (429)
+        // Check if all were cancelled — go back to idle
         setModelStatuses((prev) => {
+          const allCancelled = prev.every((ms) => ms.status === "cancelled");
+          if (allCancelled) {
+            // Will be handled by reset below
+            return prev;
+          }
           const isRateLimited = prev.every(
             (ms) => ms.status === "error" && ms.error === "__RATE_LIMITED__"
           );
           if (isRateLimited) {
             setRateLimited(true);
-          } else {
+          } else if (!prev.some((ms) => ms.status === "cancelled")) {
             setError("All model analyses failed");
           }
           return prev;
         });
-        setPhase("error");
+        // If all were cancelled, just reset to idle
+        setModelStatuses((prev) => {
+          if (prev.every((ms) => ms.status === "cancelled")) {
+            setPhase("idle");
+            return [];
+          }
+          setPhase("error");
+          return prev;
+        });
       }
     } catch (err) {
+      // Silently ignore abort errors — cancel() already reset state
+      if (ingestionSignal.aborted) return;
       setError(err instanceof Error ? err.message : "Something went wrong");
       setPhase("error");
     }
@@ -231,5 +286,18 @@ export function useAnalysis() {
     sessionIdRef.current = "";
   }, []);
 
-  return { phase, ingestionData, analysisData, harmonizationData, harmonizing, debateData, debating, debateError, currentDebateMetric, error, rateLimited, modelStatuses, run, harmonize, debate, reset, progressBarRef };
+  const cancel = useCallback(() => {
+    ingestionAbortRef.current?.abort();
+    ingestionAbortRef.current = null;
+    modelAbortMap.current.forEach((c) => c.abort());
+    modelAbortMap.current.clear();
+    reset();
+  }, [reset]);
+
+  const cancelModel = useCallback((model: string) => {
+    const controller = modelAbortMap.current.get(model);
+    if (controller) controller.abort();
+  }, []);
+
+  return { phase, ingestionData, analysisData, harmonizationData, harmonizing, debateData, debating, debateError, currentDebateMetric, error, rateLimited, modelStatuses, run, harmonize, debate, reset, cancel, cancelModel, progressBarRef };
 }

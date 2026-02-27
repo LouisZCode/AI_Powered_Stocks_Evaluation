@@ -10,9 +10,11 @@ interface Props {
   error: string | null;
   modelStatuses: ModelStatus[];
   progressBarRef: RefObject<HTMLDivElement | null>;
+  onCancel?: () => void;
+  onCancelModel?: (model: string) => void;
 }
 
-export default function PhaseStatus({ phase, ingestionData, error, modelStatuses, progressBarRef }: Props) {
+export default function PhaseStatus({ phase, ingestionData, error, modelStatuses, progressBarRef, onCancel, onCancelModel }: Props) {
   const pctRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
@@ -81,6 +83,22 @@ export default function PhaseStatus({ phase, ingestionData, error, modelStatuses
               style={{ width: "0%", transition: "width 0.6s ease-out" }}
             />
           </div>
+          {onCancel && (
+            <button
+              type="button"
+              onClick={onCancel}
+              className="mt-3 self-start text-[11px] cursor-pointer rounded-full transition-all duration-200 hover:bg-red-500/20 hover:border-red-400/40 hover:text-red-300"
+              style={{
+                fontFamily: "var(--font-mono)",
+                color: "rgba(248,113,113,0.6)",
+                background: "rgba(248,113,113,0.06)",
+                border: "1px solid rgba(248,113,113,0.15)",
+                padding: "4px 14px",
+              }}
+            >
+              Cancel
+            </button>
+          )}
         </div>
       )}
 
@@ -97,7 +115,7 @@ export default function PhaseStatus({ phase, ingestionData, error, modelStatuses
               </span>
             </div>
           )}
-          <LlmTracker modelStatuses={modelStatuses} />
+          <LlmTracker modelStatuses={modelStatuses} onCancelModel={onCancelModel} />
         </div>
       )}
 
