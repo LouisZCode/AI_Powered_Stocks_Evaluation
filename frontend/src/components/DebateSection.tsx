@@ -47,13 +47,6 @@ function ratingGlow(rating: string) {
   return "rgba(161, 161, 170, 0.25)";
 }
 
-/** Extract first sentence from content as a summary line. */
-function extractSummary(content: string): { summary: string; hasMore: boolean } {
-  const match = content.match(/^[^.!?\n]+[.!?]?/);
-  const summary = match ? match[0].trim() : content.slice(0, 120).trim();
-  const hasMore = content.length > summary.length + 5;
-  return { summary, hasMore };
-}
 
 interface Props {
   modelsUsed: string[];
@@ -87,7 +80,6 @@ export default function DebateSection({
   const [phaseIndex, setPhaseIndex] = useState(0);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [expandedLlm, setExpandedLlm] = useState<string | null>(null);
-  const [fullReasoningLlm, setFullReasoningLlm] = useState<string | null>(null);
 
   const toggleModel = (model: string) => {
     setSelectedModels((prev) =>
@@ -124,7 +116,6 @@ export default function DebateSection({
   useEffect(() => {
     setExpanded(null);
     setExpandedLlm(null);
-    setFullReasoningLlm(null);
   }, [debateData]);
 
   // Get final-round transcript entries for a metric
@@ -386,7 +377,6 @@ export default function DebateSection({
                     if (!hasTranscript) return;
                     setExpanded(isExpanded ? null : metric);
                     setExpandedLlm(null);
-                    setFullReasoningLlm(null);
                   }}
                   className={`${reveal ? "animate-metricReveal" : "opacity-0"} flex flex-col gap-2 p-3 rounded-lg border text-left transition-colors ${
                     isExpanded
@@ -395,7 +385,7 @@ export default function DebateSection({
                   }`}
                   style={reveal ? { animationDelay: `${idx * 200}ms`, "--glow-color": ratingGlow(rating) } as React.CSSProperties : undefined}
                 >
-                  <span className="text-[11px] md:text-[10px] uppercase tracking-wider text-muted">
+                  <span className="text-[11px] md:text-[10px] uppercase tracking-wider text-white">
                     {METRIC_LABELS[metric] ?? metric}
                   </span>
                   <span className={`text-sm font-medium ${ratingColor(rating)}`}>
@@ -424,17 +414,12 @@ export default function DebateSection({
                   {finalEntries.map((entry) => {
                     const isLlmOpen = expandedLlm === entry.llm;
                     const change = metricChanges.find((c) => c.llm === entry.llm);
-                    const { summary, hasMore } = extractSummary(entry.content);
-                    const showingFull = fullReasoningLlm === entry.llm;
 
                     return (
                       <div key={entry.llm} className="rounded-lg border border-white/[0.08] overflow-hidden">
                         {/* LLM header — clickable */}
                         <button
-                          onClick={() => {
-                            setExpandedLlm(isLlmOpen ? null : entry.llm);
-                            setFullReasoningLlm(null);
-                          }}
+                          onClick={() => setExpandedLlm(isLlmOpen ? null : entry.llm)}
                           className="w-full flex items-center justify-between px-3 py-2.5 bg-white/[0.04] hover:bg-white/[0.07] transition-colors text-left"
                         >
                           <span className="text-xs font-mono text-sky-300">{entry.llm}</span>
@@ -465,26 +450,10 @@ export default function DebateSection({
                           </div>
                         </button>
 
-                        {/* LLM content — two-tier: summary first, then full reasoning */}
+                        {/* LLM reasoning — shown directly on expand */}
                         {isLlmOpen && (
-                          <div className="px-3 py-2.5 border-t border-white/[0.06] animate-fadeIn">
-                            <p className="text-xs text-primary/80 leading-relaxed">{summary}</p>
-                            {hasMore && !showingFull && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setFullReasoningLlm(entry.llm);
-                                }}
-                                className="mt-2 text-[10px] font-mono text-sky-300/70 hover:text-sky-300 transition-colors cursor-pointer"
-                              >
-                                See full reasoning &rarr;
-                              </button>
-                            )}
-                            {showingFull && (
-                              <div className="mt-2 max-h-48 overflow-y-auto">
-                                <p className="text-xs text-muted whitespace-pre-wrap leading-relaxed">{entry.content}</p>
-                              </div>
-                            )}
+                          <div className="px-3 py-2.5 border-t border-white/[0.06] animate-fadeIn max-h-48 overflow-y-auto">
+                            <p className="text-xs text-white whitespace-pre-wrap leading-relaxed">{entry.content}</p>
                           </div>
                         )}
                       </div>

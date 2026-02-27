@@ -68,6 +68,7 @@ async def _debate_single_metric(
     """Debate a single metric through multiple rounds."""
     transcript = []
     changes = []
+    failed_models: set[str] = set()
 
     # Initialize positions from cached analyses
     positions = {}
@@ -94,6 +95,9 @@ async def _debate_single_metric(
 
     round1_results = await asyncio.gather(*round1_tasks)
     for model_name, response in round1_results:
+        if response is None:
+            failed_models.add(model_name)
+            continue
         positions[model_name]['history'].append(response)
         transcript.append({
             'round': 1, 'metric': metric,
@@ -103,7 +107,9 @@ async def _debate_single_metric(
     for round_num in range(2, max_rounds + 1):
         review_tasks = []
         for model_name, agent in debate_agents.items():
-            other_positions = _format_other_positions(positions, model_name)
+            if model_name in failed_models:
+                continue
+            other_positions = _format_other_positions(positions, model_name, failed_models)
             prompt = DEBATE_REVIEW.format(
                 metric=metric,
                 ticker=ticker,
@@ -115,6 +121,9 @@ async def _debate_single_metric(
 
         review_results = await asyncio.gather(*review_tasks)
         for model_name, response in review_results:
+            if response is None:
+                failed_models.add(model_name)
+                continue
             old_rating = positions[model_name]['rating']
             new_rating = _extract_updated_rating(response)
             if new_rating and new_rating.lower() != old_rating.lower():
@@ -132,7 +141,9 @@ async def _debate_single_metric(
     # Final round: Commit to stance (parallel)
     final_tasks = []
     for model_name, agent in debate_agents.items():
-        history_summary = _format_history_summary(positions)
+        if model_name in failed_models:
+            continue
+        history_summary = _format_history_summary(positions, failed_models)
         prompt = DEBATE_FINAL.format(
             metric=metric,
             ticker=ticker,
@@ -144,6 +155,9 @@ async def _debate_single_metric(
     final_results = await asyncio.gather(*final_tasks)
     final_ratings = []
     for model_name, response in final_results:
+        if response is None:
+            failed_models.add(model_name)
+            continue
         final_rating = _extract_final_rating(response)
         if final_rating:
             final_ratings.append(final_rating)
@@ -154,12 +168,16 @@ async def _debate_single_metric(
             'llm': model_name, 'content': response
         })
 
+    # Failed models contribute their last known rating to consensus
+    for model_name in failed_models:
+        final_ratings.append(positions[model_name]['rating'])
+
     consensus = _get_majority_rating(final_ratings)
 
     # Track position changes: compare initial vs final (skip if already tracked in review rounds)
     models_already_changed = {c['llm'] for c in changes if c['metric'] == metric}
     for model_name, response in final_results:
-        if model_name in models_already_changed:
+        if model_name in models_already_changed or response is None:
             continue
         final_rating = _extract_final_rating(response) or positions[model_name]['rating']
         initial = initial_ratings[model_name]
@@ -178,34 +196,41 @@ async def _debate_single_metric(
 
 # --- Helper functions ---
 
-async def _invoke_agent(agent, prompt: str, model_name: str) -> tuple[str, str]:
-    """Invoke a debate agent and return (model_name, response_text)."""
-    response = await agent.ainvoke(
-        {"messages": [{"role": "user", "content": prompt}]}
-    )
-    # Extract text content from last AI message
-    messages = response.get("messages", [])
-    for msg in reversed(messages):
-        if hasattr(msg, 'content') and msg.content:
-            return (model_name, msg.content)
-    return (model_name, "")
+async def _invoke_agent(agent, prompt: str, model_name: str) -> tuple[str, str | None]:
+    """Invoke a debate agent and return (model_name, response_text).
+    Returns (model_name, None) on any failure so the debate can continue."""
+    try:
+        response = await agent.ainvoke(
+            {"messages": [{"role": "user", "content": prompt}]}
+        )
+        # Extract text content from last AI message
+        messages = response.get("messages", [])
+        for msg in reversed(messages):
+            if hasattr(msg, 'content') and msg.content:
+                return (model_name, msg.content)
+        return (model_name, "")
+    except Exception as e:
+        print(f"[DEBATE] {model_name} failed: {e}")
+        return (model_name, None)
 
 
-def _format_other_positions(positions: dict, exclude_model: str) -> str:
+def _format_other_positions(positions: dict, exclude_model: str, failed_models: set = frozenset()) -> str:
     """Format other models' positions for the review prompt."""
     lines = []
     for model_name, pos in positions.items():
-        if model_name == exclude_model:
+        if model_name == exclude_model or model_name in failed_models:
             continue
         latest = pos['history'][-1] if pos['history'] else pos['reason']
         lines.append(f"{model_name}: {pos['rating']}\n  {latest}")
     return "\n\n".join(lines)
 
 
-def _format_history_summary(positions: dict) -> str:
+def _format_history_summary(positions: dict, failed_models: set = frozenset()) -> str:
     """Format debate history for the final round prompt."""
     lines = []
     for model_name, pos in positions.items():
+        if model_name in failed_models:
+            continue
         lines.append(f"{model_name} (current: {pos['rating']})")
         for i, entry in enumerate(pos['history']):
             lines.append(f"  Round {i+1}: {entry}")
