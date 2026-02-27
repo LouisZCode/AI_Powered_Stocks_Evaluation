@@ -19,6 +19,7 @@ class User(Base):
     name = Column(String(100), nullable=False)
     email = Column(String(200), nullable=False, unique=True)
     tier = Column(String(20), nullable=False, default="free")
+    token_balance = Column(Integer, nullable=False, server_default="50", default=50)
     creation_date = Column(DateTime, default=func.now())
     update_tier_date = Column(Date, default=func.now())
 

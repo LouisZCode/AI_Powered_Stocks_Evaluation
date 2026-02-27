@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from routes import all_routes
 from database.connection import engine
+from sqlalchemy import text
 from database.orm import Base
 
 app = FastAPI()
@@ -34,6 +35,9 @@ for router in all_routes:
 async def on_startup():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        await conn.execute(text(
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS token_balance INTEGER NOT NULL DEFAULT 50"
+        ))
 
 
 @app.get("/health/")

@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect } from "react";
 import Script from "next/script";
 import { useAnalysis } from "@/hooks/useAnalysis";
 import { useAuth } from "@/hooks/useAuth";
-import { generateReport } from "@/lib/api";
+import { generateReport, deductTokens } from "@/lib/api";
 import ParticleCanvas from "@/components/ParticleCanvas";
 import Nav from "@/components/Nav";
 import GlassContainer from "@/components/GlassContainer";
@@ -66,10 +66,19 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
   const [transitioning, setTransitioning] = useState<"out" | "in" | null>(null);
   const [pendingTicker, setPendingTicker] = useState(initialTicker);
   const { phase, ingestionData, analysisData, harmonizationData, harmonizing, debateData, debating, debateError, currentDebateMetric, error, rateLimited, modelStatuses, run, harmonize, debate, reset, cancel, cancelModel, progressBarRef } = useAnalysis();
-  const { user, isLoggedIn } = useAuth();
+  const { user, isLoggedIn, refreshUser } = useAuth();
   const isLoading = phase === "ingesting" || phase === "analyzing";
   const [generatingReport, setGeneratingReport] = useState(false);
   const [gateMessage, setGateMessage] = useState<string | null>(null);
+
+  // Deduct tokens after analysis completes, then refresh balance
+  useEffect(() => {
+    if (phase === "done" && isLoggedIn && analysisData) {
+      deductTokens(Object.keys(analysisData.evaluations))
+        .then(() => refreshUser())
+        .catch(() => refreshUser());
+    }
+  }, [phase, isLoggedIn, analysisData, refreshUser]);
 
   const handleFeatureGate = useCallback((msg: string) => {
     setGateMessage(msg);

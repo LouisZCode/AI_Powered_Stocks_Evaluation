@@ -7,7 +7,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 interface Props {
   onLogoClick?: () => void;
-  user?: { name: string; email: string; tier: string } | null;
+  user?: { name: string; email: string; tier: string; token_balance: number } | null;
 }
 
 export default function Nav({ onLogoClick, user }: Props) {
@@ -36,9 +36,14 @@ export default function Nav({ onLogoClick, user }: Props) {
         <div className="flex items-center gap-5">
           {user ? (
             <>
-              <span className="text-white/70 text-sm font-mono">
-                {user.name}
-              </span>
+              <div className="flex flex-col items-end">
+                <span className="text-white/70 text-sm font-mono">
+                  {user.name}
+                </span>
+                <span className="text-sky-400/70 text-[11px] font-mono">
+                  {user.token_balance} tokens
+                </span>
+              </div>
               <a
                 href={`${API_URL}/auth/logout`}
                 className="flex items-center justify-center rounded-full border border-white/[0.08] text-white/40 hover:text-white/80 hover:border-white/20 transition-all duration-200 cursor-pointer"

@@ -169,7 +169,9 @@ export function useAnalysis() {
 
           // Parse specific error types for better messages
           let errorMsg = "Failed";
-          if (err instanceof TypeError && err.message === "Failed to fetch") {
+          if (err instanceof Error && err.message === "__INSUFFICIENT_TOKENS__") {
+            errorMsg = "Insufficient tokens";
+          } else if (err instanceof TypeError && err.message === "Failed to fetch") {
             errorMsg = "Network error — backend unreachable";
           } else if (err instanceof DOMException && err.name === "AbortError") {
             errorMsg = "Request timed out";

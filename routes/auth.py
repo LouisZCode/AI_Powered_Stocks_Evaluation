@@ -93,7 +93,7 @@ async def auth_callback(request: Request, db: AsyncSession = Depends(get_db)):
         if existing_user:
             user = existing_user
         else:
-            user = User(email=email, name=name)
+            user = User(email=email, name=name, tier="hobbyist", token_balance=50)
             db.add(user)
             await db.flush()
 
@@ -159,7 +159,7 @@ async def google_auth_callback(request: Request, db: AsyncSession = Depends(get_
         if existing_user:
             user = existing_user
         else:
-            user = User(email=email, name=name)
+            user = User(email=email, name=name, tier="hobbyist", token_balance=50)
             db.add(user)
             await db.flush()
 
@@ -198,6 +198,40 @@ async def logout():
     return response
 
 
+from pydantic import BaseModel as PydanticBaseModel
+
+class DeductRequest(PydanticBaseModel):
+    models: list[str]
+
+@router.post("/deduct-tokens")
+async def deduct_tokens(
+    request: DeductRequest,
+    user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    cost = sum(5 if m.endswith("_deep") else 2 for m in request.models)
+
+    result = await db.execute(
+        select(User).where(User.id == user.id).with_for_update()
+    )
+    locked_user = result.scalar_one()
+
+    if locked_user.token_balance < cost:
+        raise HTTPException(
+            status_code=402,
+            detail=f"Insufficient tokens. Need {cost}, have {locked_user.token_balance}."
+        )
+
+    locked_user.token_balance -= cost
+    await db.commit()
+    await db.refresh(locked_user)
+
+    return {"token_balance": locked_user.token_balance}
+
+
 @router.get("/me/")
 async def get_me(user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     if not user:
@@ -205,5 +239,6 @@ async def get_me(user = Depends(get_current_user), db: AsyncSession = Depends(ge
     return {
         "name" : user.name,
         "email" : user.email,
-        "tier" : user.tier
+        "tier" : user.tier,
+        "token_balance" : user.token_balance
     }

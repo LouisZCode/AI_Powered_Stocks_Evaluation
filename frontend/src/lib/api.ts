@@ -58,6 +58,9 @@ export async function analyzeSingleModel(
     signal,
   });
   if (!res.ok) {
+    if (res.status === 402) {
+      throw new Error("__INSUFFICIENT_TOKENS__");
+    }
     if (res.status === 429) {
       throw new Error("__RATE_LIMITED__");
     }
@@ -67,6 +70,20 @@ export async function analyzeSingleModel(
       if (body.detail) detail = body.detail;
     } catch {}
     throw new Error(detail);
+  }
+  return res.json();
+}
+
+export async function deductTokens(models: string[]): Promise<{ token_balance: number }> {
+  const res = await fetch(`${API}/auth/deduct-tokens`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ models }),
+    credentials: "include",
+  });
+  if (!res.ok) {
+    if (res.status === 402) throw new Error("__INSUFFICIENT_TOKENS__");
+    throw new Error("Token deduction failed");
   }
   return res.json();
 }
