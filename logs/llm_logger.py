@@ -57,13 +57,15 @@ def append_session_cost(log_file: str, cost_entries: list[dict], label: str = "A
             prov = entry.get("provider", "")
             inp = entry.get("input_tokens", 0)
             out = entry.get("output_tokens", 0)
+            reasoning = entry.get("reasoning_tokens", 0)
             cost = entry.get("cost", 0)
             total_cost += cost
             tag = f"[{prov}]" if prov else ""
+            reason_part = f" / {reasoning:>6,} reason" if reasoning else ""
             if cost > 0:
-                f.write(f"  {name:16} {tag:14} {inp:>7,} in / {out:>6,} out  ${cost:.4f}\n")
+                f.write(f"  {name:16} {tag:14} {inp:>7,} in / {out:>6,} out{reason_part}  ${cost:.4f}\n")
             else:
-                f.write(f"  {name:16} {tag:14} {inp:>7,} in / {out:>6,} out  cost N/A\n")
+                f.write(f"  {name:16} {tag:14} {inp:>7,} in / {out:>6,} out{reason_part}  cost N/A\n")
         if total_cost > 0:
             f.write(f"  subtotal: ${total_cost:.4f}\n")
         f.write("\n")
@@ -85,6 +87,7 @@ def extract_usage_from_response(response: dict) -> dict:
     """
     total_input = 0
     total_output = 0
+    total_reasoning = 0
     total_cost = 0.0
 
     for msg in response.get("messages", []):
@@ -96,6 +99,12 @@ def extract_usage_from_response(response: dict) -> dict:
         if usage:
             total_input += usage.get("input_tokens", 0)
             total_output += usage.get("output_tokens", 0)
+            # Reasoning tokens (billed separately on some models)
+            details = usage.get("output_token_details") or {}
+            if isinstance(details, dict):
+                total_reasoning += details.get("reasoning", 0) or 0
+            else:
+                total_reasoning += getattr(details, "reasoning", 0) or 0
 
         # Cost from OpenRouter via response_metadata
         meta = getattr(msg, "response_metadata", {}) or {}
@@ -108,6 +117,7 @@ def extract_usage_from_response(response: dict) -> dict:
     return {
         "input_tokens": total_input,
         "output_tokens": total_output,
+        "reasoning_tokens": total_reasoning,
         "total_tokens": total_input + total_output,
         "cost": total_cost,
     }
@@ -126,12 +136,14 @@ def log_llm_cost(model_name: str, log_file: str, usage_info: dict, provider: str
     action_str = f" → {action}" if action else ""
     inp = usage_info.get("input_tokens", 0)
     out = usage_info.get("output_tokens", 0)
+    reasoning = usage_info.get("reasoning_tokens", 0)
     cost = usage_info.get("cost", 0)
 
+    reason_part = f" / {reasoning:,} reasoning" if reasoning else ""
     if cost and cost > 0:
-        msg = f"[{timestamp}] {model_name.upper()}{tag}{action_str}: ${cost:.4f} ({inp:,} in / {out:,} out)"
+        msg = f"[{timestamp}] {model_name.upper()}{tag}{action_str}: ${cost:.4f} ({inp:,} in / {out:,} out{reason_part})"
     else:
-        msg = f"[{timestamp}] {model_name.upper()}{tag}{action_str}: {inp:,} in / {out:,} out (cost N/A)"
+        msg = f"[{timestamp}] {model_name.upper()}{tag}{action_str}: {inp:,} in / {out:,} out{reason_part} (cost N/A)"
 
     with open(log_file, "a", encoding="utf-8") as f:
         f.write(msg + "\n")
@@ -153,6 +165,7 @@ def log_cost_summary(log_file: str, cost_entries: list[dict], label: str = "Anal
 
     total_in = 0
     total_out = 0
+    total_reasoning = 0
     total_cost = 0.0
 
     for entry in cost_entries:
@@ -160,23 +173,27 @@ def log_cost_summary(log_file: str, cost_entries: list[dict], label: str = "Anal
         prov = entry.get("provider", "")
         inp = entry.get("input_tokens", 0)
         out = entry.get("output_tokens", 0)
+        reasoning = entry.get("reasoning_tokens", 0)
         cost = entry.get("cost", 0)
 
         total_in += inp
         total_out += out
+        total_reasoning += reasoning
         total_cost += cost
 
         tag = f"[{prov}]" if prov else ""
+        reason_part = f" / {reasoning:>6,} reason" if reasoning else ""
         if cost and cost > 0:
-            lines.append(f"  {name:16} {tag:14} {inp:>7,} in / {out:>6,} out  ${cost:.4f}")
+            lines.append(f"  {name:16} {tag:14} {inp:>7,} in / {out:>6,} out{reason_part}  ${cost:.4f}")
         else:
-            lines.append(f"  {name:16} {tag:14} {inp:>7,} in / {out:>6,} out  cost N/A")
+            lines.append(f"  {name:16} {tag:14} {inp:>7,} in / {out:>6,} out{reason_part}  cost N/A")
 
     lines.append(f"  {'─' * 58}")
+    total_reason_part = f" / {total_reasoning:>6,} reason" if total_reasoning else ""
     if total_cost > 0:
-        lines.append(f"  {'TOTAL':16} {'':14} {total_in:>7,} in / {total_out:>6,} out  ${total_cost:.4f}")
+        lines.append(f"  {'TOTAL':16} {'':14} {total_in:>7,} in / {total_out:>6,} out{total_reason_part}  ${total_cost:.4f}")
     else:
-        lines.append(f"  {'TOTAL':16} {'':14} {total_in:>7,} in / {total_out:>6,} out  cost N/A")
+        lines.append(f"  {'TOTAL':16} {'':14} {total_in:>7,} in / {total_out:>6,} out{total_reason_part}  cost N/A")
     lines.append("")
 
     block = "\n".join(lines)

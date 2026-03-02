@@ -101,7 +101,10 @@ async def evaluate_financials(
         openrouter_agent = None
         if is_openrouter_available():
             try:
-                openrouter_agent = create_openrouter_financial_agent(model_name)
+                openrouter_agent = create_openrouter_financial_agent(
+                    model_name,
+                    action_label=f"Agora | analysis | {ticker_symbol}",
+                )
             except ValueError:
                 pass
 
@@ -171,6 +174,7 @@ async def evaluate_financials(
             "provider": provider_tag,
             "input_tokens": usage_info.get("input_tokens", 0),
             "output_tokens": usage_info.get("output_tokens", 0),
+            "reasoning_tokens": usage_info.get("reasoning_tokens", 0),
             "cost": usage_info.get("cost", 0),
         })
 

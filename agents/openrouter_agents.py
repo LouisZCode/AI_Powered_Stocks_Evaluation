@@ -37,7 +37,7 @@ def is_openrouter_available() -> bool:
     return bool(OPENROUTER_API_KEY)
 
 
-def _build_openrouter_model(model_key: str) -> ChatOpenAI:
+def _build_openrouter_model(model_key: str, action_label: str = "Agora") -> ChatOpenAI:
     if model_key not in OPENROUTER_AVAILABLE_MODELS:
         raise ValueError(f"Unknown OpenRouter model: {model_key}")
     if not OPENROUTER_API_KEY:
@@ -47,12 +47,12 @@ def _build_openrouter_model(model_key: str) -> ChatOpenAI:
         base_url=OPENROUTER_BASE_URL,
         api_key=OPENROUTER_API_KEY,
         model=OPENROUTER_AVAILABLE_MODELS[model_key],
-        default_headers={"X-Title": "Stock Evaluations V2"},
+        default_headers={"HTTP-Referer": action_label},
     )
 
 
-def create_openrouter_financial_agent(model_key: str):
-    chat_model = _build_openrouter_model(model_key)
+def create_openrouter_financial_agent(model_key: str, action_label: str = "Agora"):
+    chat_model = _build_openrouter_model(model_key, action_label)
     return create_agent(
         model=chat_model,
         system_prompt=financial_strenght_system_prompt,
@@ -61,8 +61,8 @@ def create_openrouter_financial_agent(model_key: str):
     )
 
 
-def create_openrouter_debate_agent(model_key: str):
-    chat_model = _build_openrouter_model(model_key)
+def create_openrouter_debate_agent(model_key: str, action_label: str = "Agora"):
+    chat_model = _build_openrouter_model(model_key, action_label)
     return create_agent(
         model=chat_model,
         system_prompt=debater_system_prompt,

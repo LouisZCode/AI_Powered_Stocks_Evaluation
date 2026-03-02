@@ -44,22 +44,26 @@ async def run_debate(
     position_changes = []
     all_cost_entries = []
 
-    # Create debate agents: OpenRouter (primary) + direct (fallback)
+    # Create debate agents: direct (always) + OpenRouter per-metric (for label)
     debate_agents = {}
-    or_debate_agents = {}
     use_openrouter = is_openrouter_available()
 
     for model_name in analysis_dicts.keys():
         debate_agents[model_name] = create_debate_agent(model_name)
-        if use_openrouter:
-            try:
-                or_debate_agents[model_name] = create_openrouter_debate_agent(model_name)
-            except ValueError:
-                or_debate_agents[model_name] = None
-        else:
-            or_debate_agents[model_name] = None
 
     for metric in metrics_to_debate:
+        # Create per-metric OpenRouter agents with label
+        or_debate_agents = {}
+        if use_openrouter:
+            for model_name in analysis_dicts.keys():
+                try:
+                    or_debate_agents[model_name] = create_openrouter_debate_agent(
+                        model_name,
+                        action_label=f"Agora | debate | {metric}",
+                    )
+                except ValueError:
+                    or_debate_agents[model_name] = None
+
         result = await _debate_single_metric(
             ticker, metric, analysis_dicts, debate_agents, rounds,
             or_debate_agents=or_debate_agents,
@@ -129,7 +133,7 @@ async def _debate_single_metric(
             failed_models.add(model_name)
             continue
         if usage_info:
-            cost_entries.append({"model_name": model_name, "provider": usage_info.get("provider", ""), "input_tokens": usage_info.get("input_tokens", 0), "output_tokens": usage_info.get("output_tokens", 0), "cost": usage_info.get("cost", 0)})
+            cost_entries.append({"model_name": model_name, "provider": usage_info.get("provider", ""), "input_tokens": usage_info.get("input_tokens", 0), "output_tokens": usage_info.get("output_tokens", 0), "reasoning_tokens": usage_info.get("reasoning_tokens", 0), "cost": usage_info.get("cost", 0)})
             if log_file:
                 log_llm_cost(model_name, log_file, usage_info, provider=usage_info.get("provider", ""), action=f"debate-r1-{metric}")
         positions[model_name]['history'].append(response)
@@ -162,7 +166,7 @@ async def _debate_single_metric(
                 failed_models.add(model_name)
                 continue
             if usage_info:
-                cost_entries.append({"model_name": model_name, "provider": usage_info.get("provider", ""), "input_tokens": usage_info.get("input_tokens", 0), "output_tokens": usage_info.get("output_tokens", 0), "cost": usage_info.get("cost", 0)})
+                cost_entries.append({"model_name": model_name, "provider": usage_info.get("provider", ""), "input_tokens": usage_info.get("input_tokens", 0), "output_tokens": usage_info.get("output_tokens", 0), "reasoning_tokens": usage_info.get("reasoning_tokens", 0), "cost": usage_info.get("cost", 0)})
                 if log_file:
                     log_llm_cost(model_name, log_file, usage_info, provider=usage_info.get("provider", ""), action=f"debate-r{round_num}-{metric}")
             old_rating = positions[model_name]['rating']
@@ -203,7 +207,7 @@ async def _debate_single_metric(
             failed_models.add(model_name)
             continue
         if usage_info:
-            cost_entries.append({"model_name": model_name, "provider": usage_info.get("provider", ""), "input_tokens": usage_info.get("input_tokens", 0), "output_tokens": usage_info.get("output_tokens", 0), "cost": usage_info.get("cost", 0)})
+            cost_entries.append({"model_name": model_name, "provider": usage_info.get("provider", ""), "input_tokens": usage_info.get("input_tokens", 0), "output_tokens": usage_info.get("output_tokens", 0), "reasoning_tokens": usage_info.get("reasoning_tokens", 0), "cost": usage_info.get("cost", 0)})
             if log_file:
                 log_llm_cost(model_name, log_file, usage_info, provider=usage_info.get("provider", ""), action=f"debate-final-{metric}")
         final_rating = _extract_final_rating(response)
