@@ -3,6 +3,7 @@ import re
 from collections import Counter
 
 from agents.agents import create_debate_agent, load_prompts
+from agents.openrouter_agents import create_openrouter_debate_agent, is_openrouter_available
 
 prompts = load_prompts()
 DEBATE_ROUND1 = prompts["DEBATE_ROUND1"]
@@ -38,14 +39,25 @@ async def run_debate(
     all_transcripts = []
     position_changes = []
 
-    # Create debate agents dynamically
+    # Create debate agents: OpenRouter (primary) + direct (fallback)
     debate_agents = {}
+    or_debate_agents = {}
+    use_openrouter = is_openrouter_available()
+
     for model_name in analysis_dicts.keys():
         debate_agents[model_name] = create_debate_agent(model_name)
+        if use_openrouter:
+            try:
+                or_debate_agents[model_name] = create_openrouter_debate_agent(model_name)
+            except ValueError:
+                or_debate_agents[model_name] = None
+        else:
+            or_debate_agents[model_name] = None
 
     for metric in metrics_to_debate:
         result = await _debate_single_metric(
-            ticker, metric, analysis_dicts, debate_agents, rounds
+            ticker, metric, analysis_dicts, debate_agents, rounds,
+            or_debate_agents=or_debate_agents,
         )
         debate_results[metric] = result['final_rating']
         all_transcripts.extend(result['transcript'])
@@ -63,7 +75,8 @@ async def _debate_single_metric(
     metric: str,
     analysis_dicts: dict[str, dict],
     debate_agents: dict,
-    max_rounds: int
+    max_rounds: int,
+    or_debate_agents: dict | None = None,
 ) -> dict:
     """Debate a single metric through multiple rounds."""
     transcript = []
@@ -83,6 +96,7 @@ async def _debate_single_metric(
         initial_ratings[model_name] = rating
 
     # Round 1: State positions (parallel)
+    or_agents = or_debate_agents or {}
     round1_tasks = []
     for model_name, agent in debate_agents.items():
         prompt = DEBATE_ROUND1.format(
@@ -91,7 +105,10 @@ async def _debate_single_metric(
             rating=positions[model_name]['rating'],
             reason=positions[model_name]['reason']
         )
-        round1_tasks.append(_invoke_agent(agent, prompt, model_name))
+        round1_tasks.append(_invoke_agent(
+            or_agents.get(model_name), prompt, model_name,
+            fallback_agent=agent,
+        ))
 
     round1_results = await asyncio.gather(*round1_tasks)
     for model_name, response in round1_results:
@@ -117,7 +134,10 @@ async def _debate_single_metric(
                 my_reason=positions[model_name]['reason'],
                 other_positions=other_positions
             )
-            review_tasks.append(_invoke_agent(agent, prompt, model_name))
+            review_tasks.append(_invoke_agent(
+                or_agents.get(model_name), prompt, model_name,
+                fallback_agent=agent,
+            ))
 
         review_results = await asyncio.gather(*review_tasks)
         for model_name, response in review_results:
@@ -150,7 +170,10 @@ async def _debate_single_metric(
             my_rating=positions[model_name]['rating'],
             history_summary=history_summary
         )
-        final_tasks.append(_invoke_agent(agent, prompt, model_name))
+        final_tasks.append(_invoke_agent(
+            or_agents.get(model_name), prompt, model_name,
+            fallback_agent=agent,
+        ))
 
     final_results = await asyncio.gather(*final_tasks)
     final_ratings = []
@@ -197,22 +220,29 @@ async def _debate_single_metric(
 
 # --- Helper functions ---
 
-async def _invoke_agent(agent, prompt: str, model_name: str) -> tuple[str, str | None]:
-    """Invoke a debate agent and return (model_name, response_text).
-    Returns (model_name, None) on any failure so the debate can continue."""
-    try:
-        response = await agent.ainvoke(
-            {"messages": [{"role": "user", "content": prompt}]}
-        )
-        # Extract text content from last AI message
-        messages = response.get("messages", [])
-        for msg in reversed(messages):
-            if hasattr(msg, 'content') and msg.content:
-                return (model_name, msg.content)
-        return (model_name, "")
-    except Exception as e:
-        print(f"[DEBATE] {model_name} failed: {e}")
-        return (model_name, None)
+async def _invoke_agent(
+    agent, prompt: str, model_name: str, fallback_agent=None
+) -> tuple[str, str | None]:
+    """Invoke a debate agent with optional fallback.
+    Returns (model_name, response_text) or (model_name, None) on failure."""
+    for current_agent, tag in [(agent, "openrouter"), (fallback_agent, "direct")]:
+        if current_agent is None:
+            continue
+        try:
+            response = await current_agent.ainvoke(
+                {"messages": [{"role": "user", "content": prompt}]}
+            )
+            messages = response.get("messages", [])
+            for msg in reversed(messages):
+                if hasattr(msg, 'content') and msg.content:
+                    print(f"[DEBATE] {model_name} succeeded via {tag}")
+                    return (model_name, msg.content)
+            return (model_name, "")
+        except Exception as e:
+            print(f"[DEBATE] {model_name} failed via {tag}: {e}")
+            continue
+
+    return (model_name, None)
 
 
 def _format_other_positions(positions: dict, exclude_model: str, failed_models: set = frozenset()) -> str:

@@ -4,6 +4,7 @@ from fastapi import Depends, HTTPException
 
 from pydantic import BaseModel
 from agents import create_financial_agent
+from agents import create_openrouter_financial_agent, is_openrouter_available
 
 from database import get_db
 from database.financial_statements import get_cached_financials
@@ -96,31 +97,48 @@ async def evaluate_financials(
     BACKOFF_SECONDS = [2, 4]  # wait times between retries
 
     async def run_model(model_name: str):
+        # Build OpenRouter agent (primary) and direct agent (fallback)
+        openrouter_agent = None
+        if is_openrouter_available():
+            try:
+                openrouter_agent = create_openrouter_financial_agent(model_name)
+            except ValueError:
+                pass
+
         try:
-            agent = create_financial_agent(model_name)
+            direct_agent = create_financial_agent(model_name)
         except ValueError:
             raise HTTPException(status_code=500, detail=f"Unknown model: {model_name}")
 
         last_error = None
         for attempt in range(1, MAX_ATTEMPTS + 1):
+            # Attempt 1: OpenRouter if available; attempts 2-3: direct provider
+            if attempt == 1 and openrouter_agent is not None:
+                agent = openrouter_agent
+                provider_tag = "openrouter"
+            else:
+                agent = direct_agent
+                provider_tag = "direct"
+
             try:
-                log_llm_start(model_name, log_file)
+                log_llm_start(model_name, log_file, provider=provider_tag)
                 start_time = time.time()
                 response = await asyncio.wait_for(
                     agent.ainvoke({"messages": {"role": "user", "content": user_message}}),
                     timeout=TIMEOUT_SECONDS,
                 )
                 elapsed = time.time() - start_time
-                log_llm_finish(model_name, log_file, elapsed)
+                log_llm_finish(model_name, log_file, elapsed, provider=provider_tag)
                 log_llm_conversation(model_name, log_file, response)
                 log_llm_timing(log_file, elapsed)
 
+                print(f"[PROVIDER] {model_name} succeeded via {provider_tag}")
                 return model_name, response["structured_response"]
 
             except asyncio.TimeoutError:
-                last_error = f"Timed out after {TIMEOUT_SECONDS}s"
+                last_error = f"Timed out after {TIMEOUT_SECONDS}s (via {provider_tag})"
             except Exception as e:
-                last_error = str(e)
+                last_error = f"{str(e)} (via {provider_tag})"
 
             # If retries remain, log and wait
             if attempt < MAX_ATTEMPTS:

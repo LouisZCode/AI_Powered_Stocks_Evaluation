@@ -48,20 +48,22 @@ def log_data_source(ticker: str, log_file: str, source: str):
     print(msg)
 
 
-def log_llm_start(llm_name: str, log_file: str):
+def log_llm_start(llm_name: str, log_file: str, provider: str = ""):
     """Logs when an LLM is launched."""
     timestamp = datetime.now().strftime("%H:%M:%S")
+    tag = f" [{provider}]" if provider else ""
     with open(log_file, "a", encoding="utf-8") as f:
-        f.write(f"[{timestamp}] {llm_name.upper()} → launched\n")
-    print(f"[{timestamp}] {llm_name.upper()} → launched")
+        f.write(f"[{timestamp}] {llm_name.upper()}{tag} → launched\n")
+    print(f"[{timestamp}] {llm_name.upper()}{tag} → launched")
 
 
-def log_llm_finish(llm_name: str, log_file: str, elapsed_time: float):
+def log_llm_finish(llm_name: str, log_file: str, elapsed_time: float, provider: str = ""):
     """Logs when an LLM finishes with its time."""
     timestamp = datetime.now().strftime("%H:%M:%S")
+    tag = f" [{provider}]" if provider else ""
     with open(log_file, "a", encoding="utf-8") as f:
-        f.write(f"[{timestamp}] {llm_name.upper()} → finished ({elapsed_time:.2f}s)\n")
-    print(f"[{timestamp}] {llm_name.upper()} → finished ({elapsed_time:.2f}s)")
+        f.write(f"[{timestamp}] {llm_name.upper()}{tag} → finished ({elapsed_time:.2f}s)\n")
+    print(f"[{timestamp}] {llm_name.upper()}{tag} → finished ({elapsed_time:.2f}s)")
 
 
 def log_llm_retry(llm_name: str, log_file: str, attempt: int, max_attempts: int, error: str, wait_seconds: float):
