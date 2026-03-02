@@ -534,6 +534,12 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
                 generatingReport={generatingReport}
                 ticker={pendingTicker}
                 companyDomain={ingestionData?.domain ?? null}
+                dataRange={ingestionData?.earliest_quarter && ingestionData?.latest_quarter ? {
+                  earliest: ingestionData.earliest_quarter,
+                  latest: ingestionData.latest_quarter,
+                  quarters: ingestionData.quarters_count ?? 0,
+                  chunks: ingestionData.chunks,
+                } : null}
                 onNewAnalysis={handleNewAnalysis}
                 onAddToWatchlist={() => {/* TODO: watchlist */}}
                 isLoggedIn={isLoggedIn}

@@ -25,9 +25,10 @@ interface Props {
   isLoggedIn?: boolean;
   onFeatureGate?: (msg: string) => void;
   modelStatuses?: ModelStatus[];
+  dataRange?: { earliest: string; latest: string; quarters: number; chunks: number } | null;
 }
 
-export default function AnalysisResults({ data, onHarmonize, harmonizing, harmonizationData, onDebate, debating, debateData, debateError, currentDebateMetric, onReport, generatingReport, ticker, companyDomain, onNewAnalysis, onAddToWatchlist, isLoggedIn = true, onFeatureGate, modelStatuses = [] }: Props) {
+export default function AnalysisResults({ data, onHarmonize, harmonizing, harmonizationData, onDebate, debating, debateData, debateError, currentDebateMetric, onReport, generatingReport, ticker, companyDomain, onNewAnalysis, onAddToWatchlist, isLoggedIn = true, onFeatureGate, modelStatuses = [], dataRange }: Props) {
   const entries = Object.entries(data.evaluations);
   const cancelledModels = modelStatuses.filter((ms) => ms.status === "cancelled");
   const harmCardRef = useRef<HTMLDivElement>(null);
@@ -100,6 +101,12 @@ export default function AnalysisResults({ data, onHarmonize, harmonizing, harmon
           {ticker}
         </span>
       </div>
+
+      {dataRange && (
+        <p className="text-xs text-white text-center font-mono max-w-xs mx-auto leading-relaxed">
+          {dataRange.chunks.toLocaleString()} financial data points analyzed across {dataRange.quarters} quarters. From {dataRange.earliest} to {dataRange.latest}
+        </p>
+      )}
 
       <div className="flex items-center gap-2">
         <div className="w-1.5 h-1.5 rounded-full bg-sky-300" />

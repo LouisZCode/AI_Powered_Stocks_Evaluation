@@ -4,7 +4,7 @@ from database.orm import DocumentChunk, FinancialStatements
 from database.financial_statements import get_or_fetch_financials
 from database.yahoo_financial_statements import get_yahoo_financials
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import func, select
+from sqlalchemy import func, select, distinct
 from datetime import date
 from urllib.parse import urlparse
 
@@ -12,6 +12,26 @@ import asyncio
 import yfinance as yf
 
 router = APIRouter()
+
+
+async def _get_data_range(ticker: str, db: AsyncSession) -> dict:
+    """Get the quarter range and count for a ticker from chunks."""
+    rows = (await db.execute(
+        select(DocumentChunk.quarter, DocumentChunk.year)
+        .where(DocumentChunk.ticker == ticker)
+        .where(DocumentChunk.quarter.isnot(None))
+        .distinct()
+        .order_by(DocumentChunk.year, DocumentChunk.quarter)
+    )).all()
+    if not rows:
+        return {"earliest_quarter": None, "latest_quarter": None, "quarters_count": 0}
+    earliest = rows[0]
+    latest = rows[-1]
+    return {
+        "earliest_quarter": f"{earliest.quarter} {earliest.year}",
+        "latest_quarter": f"{latest.quarter} {latest.year}",
+        "quarters_count": len(rows),
+    }
 
 
 def _get_company_domain(ticker: str) -> str | None:
@@ -42,12 +62,14 @@ async def ingest_financials(ticker_symbol: str, db: AsyncSession = Depends(get_d
         # Pre-cache structured financials so LLM routes only read from DB
         await get_or_fetch_financials(ticker_symbol, db, latest_filing)
         domain = await domain_task
+        data_range = await _get_data_range(ticker_symbol, db)
         return {
             "status": "exists",
             "ticker": ticker_symbol,
             "chunks": existing,
             "latest_filing_date": str(latest_filing) if latest_filing else None,
             "domain": domain,
+            **data_range,
         }
 
     # Run SEC ingestion (blocking I/O, offload to thread)
@@ -96,10 +118,12 @@ async def ingest_financials(ticker_symbol: str, db: AsyncSession = Depends(get_d
     # Pre-cache structured financials so LLM routes only read from DB
     await get_or_fetch_financials(ticker_symbol, db, latest_filing)
     domain = await domain_task
+    data_range = await _get_data_range(ticker_symbol, db)
     return {
         "status": "ingested",
         "ticker": ticker_symbol,
         "chunks": new_count,
         "latest_filing_date": str(latest_filing) if latest_filing else None,
         "domain": domain,
+        **data_range,
     }

@@ -11,6 +11,9 @@ export interface IngestionResponse {
   latest_filing_date: string | null;
   message?: string;
   domain?: string | null;
+  earliest_quarter?: string | null;
+  latest_quarter?: string | null;
+  quarters_count?: number;
 }
 
 export interface FinancialAnalysis {
