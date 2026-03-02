@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from sqlalchemy import and_, select
 
 from func import run_debate
-from logs import ensure_log, log_debate_transcript
+from logs import ensure_log, log_debate_transcript, append_session_cost
 
 router = APIRouter()
 
@@ -52,10 +52,14 @@ async def debate_financial_analysis(ticker_symbol: str, request: DebateRequest, 
         ticker=ticker_symbol,
         metrics_to_debate=request.metrics,
         analysis_dicts=analysis_dicts,
-        rounds=request.rounds
+        rounds=request.rounds,
+        log_file=log_file,
     )
 
     log_debate_transcript(result, log_file)
+
+    if result.get("cost_entries"):
+        append_session_cost(log_file, result["cost_entries"], label="Debate")
 
     return {
         'ticker': ticker_symbol,

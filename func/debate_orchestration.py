@@ -4,6 +4,7 @@ from collections import Counter
 
 from agents.agents import create_debate_agent, load_prompts
 from agents.openrouter_agents import create_openrouter_debate_agent, is_openrouter_available
+from logs import extract_usage_from_response, log_llm_cost, log_cost_summary
 
 prompts = load_prompts()
 DEBATE_ROUND1 = prompts["DEBATE_ROUND1"]
@@ -17,7 +18,8 @@ async def run_debate(
     ticker: str,
     metrics_to_debate: list[str],
     analysis_dicts: dict[str, dict],
-    rounds: int = 2
+    rounds: int = 2,
+    log_file: str = None,
 ) -> dict:
     """
     Run multi-round debate on disputed metrics.
@@ -27,17 +29,20 @@ async def run_debate(
         metrics_to_debate: Metric names needing debate
         analysis_dicts: {model_name: analysis_dict} from cached analyses
         rounds: Number of debate rounds
+        log_file: Optional log file path for cost tracking
 
     Returns:
         {
             'debate_results': {metric: final_rating},
             'position_changes': [{llm, metric, from, to}],
-            'transcript': [{round, metric, llm, content}]
+            'transcript': [{round, metric, llm, content}],
+            'cost_entries': [{model_name, provider, input_tokens, output_tokens, cost}]
         }
     """
     debate_results = {}
     all_transcripts = []
     position_changes = []
+    all_cost_entries = []
 
     # Create debate agents: OpenRouter (primary) + direct (fallback)
     debate_agents = {}
@@ -58,15 +63,21 @@ async def run_debate(
         result = await _debate_single_metric(
             ticker, metric, analysis_dicts, debate_agents, rounds,
             or_debate_agents=or_debate_agents,
+            log_file=log_file,
         )
         debate_results[metric] = result['final_rating']
         all_transcripts.extend(result['transcript'])
         position_changes.extend(result['changes'])
+        all_cost_entries.extend(result.get('cost_entries', []))
+
+    if log_file and all_cost_entries:
+        log_cost_summary(log_file, all_cost_entries, label="Debate")
 
     return {
         'debate_results': debate_results,
         'position_changes': position_changes,
-        'transcript': all_transcripts
+        'transcript': all_transcripts,
+        'cost_entries': all_cost_entries,
     }
 
 
@@ -77,10 +88,12 @@ async def _debate_single_metric(
     debate_agents: dict,
     max_rounds: int,
     or_debate_agents: dict | None = None,
+    log_file: str = None,
 ) -> dict:
     """Debate a single metric through multiple rounds."""
     transcript = []
     changes = []
+    cost_entries = []
     failed_models: set[str] = set()
 
     # Initialize positions from cached analyses
@@ -111,10 +124,14 @@ async def _debate_single_metric(
         ))
 
     round1_results = await asyncio.gather(*round1_tasks)
-    for model_name, response in round1_results:
+    for model_name, response, usage_info in round1_results:
         if response is None:
             failed_models.add(model_name)
             continue
+        if usage_info:
+            cost_entries.append({"model_name": model_name, "provider": usage_info.get("provider", ""), "input_tokens": usage_info.get("input_tokens", 0), "output_tokens": usage_info.get("output_tokens", 0), "cost": usage_info.get("cost", 0)})
+            if log_file:
+                log_llm_cost(model_name, log_file, usage_info, provider=usage_info.get("provider", ""), action=f"debate-r1-{metric}")
         positions[model_name]['history'].append(response)
         transcript.append({
             'round': 1, 'metric': metric,
@@ -140,10 +157,14 @@ async def _debate_single_metric(
             ))
 
         review_results = await asyncio.gather(*review_tasks)
-        for model_name, response in review_results:
+        for model_name, response, usage_info in review_results:
             if response is None:
                 failed_models.add(model_name)
                 continue
+            if usage_info:
+                cost_entries.append({"model_name": model_name, "provider": usage_info.get("provider", ""), "input_tokens": usage_info.get("input_tokens", 0), "output_tokens": usage_info.get("output_tokens", 0), "cost": usage_info.get("cost", 0)})
+                if log_file:
+                    log_llm_cost(model_name, log_file, usage_info, provider=usage_info.get("provider", ""), action=f"debate-r{round_num}-{metric}")
             old_rating = positions[model_name]['rating']
             new_rating = _extract_updated_rating(response)
             if new_rating and new_rating.lower() != old_rating.lower():
@@ -177,10 +198,14 @@ async def _debate_single_metric(
 
     final_results = await asyncio.gather(*final_tasks)
     final_ratings = []
-    for model_name, response in final_results:
+    for model_name, response, usage_info in final_results:
         if response is None:
             failed_models.add(model_name)
             continue
+        if usage_info:
+            cost_entries.append({"model_name": model_name, "provider": usage_info.get("provider", ""), "input_tokens": usage_info.get("input_tokens", 0), "output_tokens": usage_info.get("output_tokens", 0), "cost": usage_info.get("cost", 0)})
+            if log_file:
+                log_llm_cost(model_name, log_file, usage_info, provider=usage_info.get("provider", ""), action=f"debate-final-{metric}")
         final_rating = _extract_final_rating(response)
         if final_rating:
             final_ratings.append(final_rating)
@@ -200,7 +225,7 @@ async def _debate_single_metric(
     # Track NET position changes: compare initial vs final for all models
     # This replaces any intermediate review-round changes with the true net result
     changes = []
-    for model_name, response in final_results:
+    for model_name, response, _usage in final_results:
         if response is None:
             continue
         final_rating = _extract_final_rating(response) or positions[model_name]['rating']
@@ -214,7 +239,8 @@ async def _debate_single_metric(
     return {
         'final_rating': consensus,
         'transcript': transcript,
-        'changes': changes
+        'changes': changes,
+        'cost_entries': cost_entries,
     }
 
 
@@ -222,9 +248,9 @@ async def _debate_single_metric(
 
 async def _invoke_agent(
     agent, prompt: str, model_name: str, fallback_agent=None
-) -> tuple[str, str | None]:
+) -> tuple[str, str | None, dict]:
     """Invoke a debate agent with optional fallback.
-    Returns (model_name, response_text) or (model_name, None) on failure."""
+    Returns (model_name, response_text, usage_info) or (model_name, None, {}) on failure."""
     for current_agent, tag in [(agent, "openrouter"), (fallback_agent, "direct")]:
         if current_agent is None:
             continue
@@ -232,17 +258,19 @@ async def _invoke_agent(
             response = await current_agent.ainvoke(
                 {"messages": [{"role": "user", "content": prompt}]}
             )
+            usage_info = extract_usage_from_response(response)
+            usage_info["provider"] = tag
             messages = response.get("messages", [])
             for msg in reversed(messages):
                 if hasattr(msg, 'content') and msg.content:
                     print(f"[DEBATE] {model_name} succeeded via {tag}")
-                    return (model_name, msg.content)
-            return (model_name, "")
+                    return (model_name, msg.content, usage_info)
+            return (model_name, "", usage_info)
         except Exception as e:
             print(f"[DEBATE] {model_name} failed via {tag}: {e}")
             continue
 
-    return (model_name, None)
+    return (model_name, None, {})
 
 
 def _format_other_positions(positions: dict, exclude_model: str, failed_models: set = frozenset()) -> str:

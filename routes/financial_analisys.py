@@ -17,7 +17,7 @@ from sqlalchemy import and_, func, select
 
 from dependencies import get_current_user
 
-from logs import ensure_log, log_llm_conversation, log_llm_timing, log_llm_start, log_llm_finish, log_cached_result, log_llm_retry, log_llm_error, log_data_source
+from logs import ensure_log, log_llm_conversation, log_llm_timing, log_llm_start, log_llm_finish, log_cached_result, log_llm_retry, log_llm_error, log_data_source, extract_usage_from_response, log_llm_cost, log_cost_summary, append_session_cost
 router = APIRouter()
 
 class EvalRequest(BaseModel):
@@ -132,8 +132,11 @@ async def evaluate_financials(
                 log_llm_conversation(model_name, log_file, response)
                 log_llm_timing(log_file, elapsed)
 
+                usage_info = extract_usage_from_response(response)
+                log_llm_cost(model_name, log_file, usage_info, provider=provider_tag, action="analysis")
+
                 print(f"[PROVIDER] {model_name} succeeded via {provider_tag}")
-                return model_name, response["structured_response"]
+                return model_name, response["structured_response"], usage_info, provider_tag
 
             except asyncio.TimeoutError:
                 last_error = f"Timed out after {TIMEOUT_SECONDS}s (via {provider_tag})"
@@ -156,12 +159,24 @@ async def evaluate_financials(
 
     fresh_results = {}
     errors = []
+    cost_entries = []
     for result in results:
         if isinstance(result, Exception):
             errors.append(result)
             continue
-        model_name, response = result
+        model_name, response, usage_info, provider_tag = result
         fresh_results[model_name] = response
+        cost_entries.append({
+            "model_name": model_name,
+            "provider": provider_tag,
+            "input_tokens": usage_info.get("input_tokens", 0),
+            "output_tokens": usage_info.get("output_tokens", 0),
+            "cost": usage_info.get("cost", 0),
+        })
+
+    if cost_entries:
+        log_cost_summary(log_file, cost_entries, label="Analysis")
+        append_session_cost(log_file, cost_entries, label="Analysis")
 
     if not fresh_results and not cached_results and errors:
         first = errors[0]

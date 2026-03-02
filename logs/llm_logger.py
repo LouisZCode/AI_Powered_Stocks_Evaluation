@@ -3,6 +3,7 @@ Logger for capturing full LLM conversations including tool calls and responses.
 
 You can find:
 ensure_log, log_llm_conversation, log_debate_check, log_llm_timing, log_cached_result
+extract_usage_from_response, log_llm_cost, log_cost_summary
 """
 
 import os
@@ -15,18 +16,17 @@ def ensure_log(ticker: str, session_id: str = None) -> str:
     """
     Returns the log file path for a ticker on today's date.
     Creates the file with a header if it doesn't exist yet.
-    When session_id is provided, each "Evaluate" click gets its own log file.
+    When session_id is provided, logs go into a session subfolder.
     """
-    os.makedirs(LOGS_FOLDER, exist_ok=True)
+    if session_id:
+        folder = os.path.join(LOGS_FOLDER, session_id)
+    else:
+        folder = LOGS_FOLDER
+    os.makedirs(folder, exist_ok=True)
 
     date_str = datetime.now().strftime("%Y-%m-%d")
-
-    if session_id:
-        filename = f"{ticker}_{date_str}_{session_id}.log"
-    else:
-        filename = f"{ticker}_{date_str}.log"
-
-    filepath = os.path.join(LOGS_FOLDER, filename)
+    filename = f"{ticker}_{date_str}.log"
+    filepath = os.path.join(folder, filename)
 
     if not os.path.exists(filepath):
         with open(filepath, "w", encoding="utf-8") as f:
@@ -39,6 +39,36 @@ def ensure_log(ticker: str, session_id: str = None) -> str:
     return filepath
 
 
+def append_session_cost(log_file: str, cost_entries: list[dict], label: str = "Analysis"):
+    """
+    Append cost entries to the session's costs.log file.
+    Derives the costs.log path from the log_file's parent directory.
+    """
+    if not cost_entries:
+        return
+    costs_file = os.path.join(os.path.dirname(log_file), "costs.log")
+    timestamp = datetime.now().strftime("%H:%M:%S")
+
+    total_cost = 0.0
+    with open(costs_file, "a", encoding="utf-8") as f:
+        f.write(f"[{timestamp}] {label}\n")
+        for entry in cost_entries:
+            name = entry.get("model_name", "unknown")
+            prov = entry.get("provider", "")
+            inp = entry.get("input_tokens", 0)
+            out = entry.get("output_tokens", 0)
+            cost = entry.get("cost", 0)
+            total_cost += cost
+            tag = f"[{prov}]" if prov else ""
+            if cost > 0:
+                f.write(f"  {name:16} {tag:14} {inp:>7,} in / {out:>6,} out  ${cost:.4f}\n")
+            else:
+                f.write(f"  {name:16} {tag:14} {inp:>7,} in / {out:>6,} out  cost N/A\n")
+        if total_cost > 0:
+            f.write(f"  subtotal: ${total_cost:.4f}\n")
+        f.write("\n")
+
+
 def log_data_source(ticker: str, log_file: str, source: str):
     """Logs which data pipeline provided the financial data (SEC, Yahoo, Finnhub, Database)."""
     timestamp = datetime.now().strftime("%H:%M:%S")
@@ -46,6 +76,113 @@ def log_data_source(ticker: str, log_file: str, source: str):
     with open(log_file, "a", encoding="utf-8") as f:
         f.write(msg + "\n\n")
     print(msg)
+
+
+def extract_usage_from_response(response: dict) -> dict:
+    """
+    Extract token usage and cost from all AIMessages in an agent response.
+    Sums across multiple AIMessages (tool-call loops produce several).
+    """
+    total_input = 0
+    total_output = 0
+    total_cost = 0.0
+
+    for msg in response.get("messages", []):
+        if type(msg).__name__ != "AIMessage":
+            continue
+
+        # Token counts from LangChain's standardized usage_metadata
+        usage = getattr(msg, "usage_metadata", None)
+        if usage:
+            total_input += usage.get("input_tokens", 0)
+            total_output += usage.get("output_tokens", 0)
+
+        # Cost from OpenRouter via response_metadata
+        meta = getattr(msg, "response_metadata", {}) or {}
+        token_usage = meta.get("token_usage", {}) or {}
+        # OpenRouter may place cost under token_usage.cost or meta.cost
+        cost = token_usage.get("cost", 0) or meta.get("cost", 0)
+        if cost:
+            total_cost += float(cost)
+
+    return {
+        "input_tokens": total_input,
+        "output_tokens": total_output,
+        "total_tokens": total_input + total_output,
+        "cost": total_cost,
+    }
+
+
+def log_llm_cost(model_name: str, log_file: str, usage_info: dict, provider: str = "", action: str = ""):
+    """
+    Log a single cost line for one LLM call.
+
+    Output format:
+      [HH:MM:SS] MODEL [provider] → action: $0.0034 (2,100 in / 450 out)
+    If cost is 0 (direct provider), shows tokens only with 'cost N/A'.
+    """
+    timestamp = datetime.now().strftime("%H:%M:%S")
+    tag = f" [{provider}]" if provider else ""
+    action_str = f" → {action}" if action else ""
+    inp = usage_info.get("input_tokens", 0)
+    out = usage_info.get("output_tokens", 0)
+    cost = usage_info.get("cost", 0)
+
+    if cost and cost > 0:
+        msg = f"[{timestamp}] {model_name.upper()}{tag}{action_str}: ${cost:.4f} ({inp:,} in / {out:,} out)"
+    else:
+        msg = f"[{timestamp}] {model_name.upper()}{tag}{action_str}: {inp:,} in / {out:,} out (cost N/A)"
+
+    with open(log_file, "a", encoding="utf-8") as f:
+        f.write(msg + "\n")
+    print(msg)
+
+
+def log_cost_summary(log_file: str, cost_entries: list[dict], label: str = "Analysis"):
+    """
+    Log a cost summary table at the end of a session action.
+
+    cost_entries: list of dicts with keys:
+        model_name, provider, input_tokens, output_tokens, cost
+    """
+    if not cost_entries:
+        return
+
+    timestamp = datetime.now().strftime("%H:%M:%S")
+    lines = [f"\n[{timestamp}] COST SUMMARY — {label}"]
+
+    total_in = 0
+    total_out = 0
+    total_cost = 0.0
+
+    for entry in cost_entries:
+        name = entry.get("model_name", "unknown")
+        prov = entry.get("provider", "")
+        inp = entry.get("input_tokens", 0)
+        out = entry.get("output_tokens", 0)
+        cost = entry.get("cost", 0)
+
+        total_in += inp
+        total_out += out
+        total_cost += cost
+
+        tag = f"[{prov}]" if prov else ""
+        if cost and cost > 0:
+            lines.append(f"  {name:16} {tag:14} {inp:>7,} in / {out:>6,} out  ${cost:.4f}")
+        else:
+            lines.append(f"  {name:16} {tag:14} {inp:>7,} in / {out:>6,} out  cost N/A")
+
+    lines.append(f"  {'─' * 58}")
+    if total_cost > 0:
+        lines.append(f"  {'TOTAL':16} {'':14} {total_in:>7,} in / {total_out:>6,} out  ${total_cost:.4f}")
+    else:
+        lines.append(f"  {'TOTAL':16} {'':14} {total_in:>7,} in / {total_out:>6,} out  cost N/A")
+    lines.append("")
+
+    block = "\n".join(lines)
+    with open(log_file, "a", encoding="utf-8") as f:
+        f.write(block + "\n")
+    print(block)
 
 
 def log_llm_start(llm_name: str, log_file: str, provider: str = ""):
