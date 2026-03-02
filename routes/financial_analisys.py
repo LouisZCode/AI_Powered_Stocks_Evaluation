@@ -93,7 +93,7 @@ async def evaluate_financials(
         user_message = f"{ticker_symbol}\n\n{financial_context}"
 
     MAX_ATTEMPTS = 3
-    TIMEOUT_SECONDS = 120
+    TIMEOUT_SECONDS = 150
     BACKOFF_SECONDS = [2, 4]  # wait times between retries
 
     async def run_model(model_name: str):
@@ -112,8 +112,8 @@ async def evaluate_financials(
 
         last_error = None
         for attempt in range(1, MAX_ATTEMPTS + 1):
-            # Attempt 1: OpenRouter if available; attempts 2-3: direct provider
-            if attempt == 1 and openrouter_agent is not None:
+            # Attempts 1-2: OpenRouter (retry for speed issues); attempt 3: direct fallback
+            if attempt <= 2 and openrouter_agent is not None:
                 agent = openrouter_agent
                 provider_tag = "openrouter"
             else:
