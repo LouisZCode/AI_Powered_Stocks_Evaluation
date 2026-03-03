@@ -55,6 +55,7 @@ const TRUST_ITEMS = [
 ];
 
 type Mode = "home" | "analyze";
+type Tab = "financial" | "potential" | "price" | "watchlist";
 
 interface Props {
   initialMode?: Mode;
@@ -63,6 +64,7 @@ interface Props {
 
 export default function MergedPage({ initialMode = "home", initialTicker = "" }: Props) {
   const [mode, setMode] = useState<Mode>(initialMode);
+  const [tab, setTab] = useState<Tab>("financial");
   const [transitioning, setTransitioning] = useState<"out" | "in" | null>(null);
   const [pendingTicker, setPendingTicker] = useState(initialTicker);
   const { phase, ingestionData, analysisData, harmonizationData, harmonizing, debateData, debating, debateError, currentDebateMetric, error, rateLimited, modelStatuses, run, harmonize, debate, reset, cancel, cancelModel, progressBarRef } = useAnalysis();
@@ -517,39 +519,111 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
       {showAnalyze && (
         <div className={`relative z-10 ${transitioning === "in" ? "animate-analyzeEnter" : ""}`}>
           <GlassContainer>
-            <Header />
-            <TickerInput onSubmit={handleRun} disabled={isLoading} initialTicker={pendingTicker} isLoggedIn={isLoggedIn} onFeatureGate={handleFeatureGate} tokenBalance={user?.token_balance} />
-            {!rateLimited && (
-              <PhaseStatus phase={phase} ingestionData={ingestionData} error={error} modelStatuses={modelStatuses} progressBarRef={progressBarRef} onCancel={cancel} onCancelModel={cancelModel} />
+            {/* ── Tab Bar ── */}
+            <div className="flex gap-1 p-1 rounded-xl" style={{ background: "rgba(255,255,255,0.04)" }}>
+              {([
+                { key: "financial", label: "Financial" },
+                { key: "potential", label: "Potential" },
+                { key: "price",     label: "Price" },
+                { key: "watchlist", label: "My Watchlist" },
+              ] as { key: Tab; label: string }[]).map(({ key, label }) => (
+                <button
+                  key={key}
+                  onClick={() => setTab(key)}
+                  className="flex-1 cursor-pointer rounded-lg py-2 text-xs md:text-sm font-medium transition-all duration-200"
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    letterSpacing: 0.5,
+                    background: tab === key ? "rgba(61,216,224,0.12)" : "transparent",
+                    color: tab === key ? "#3dd8e0" : "rgba(255,255,255,0.35)",
+                    border: tab === key ? "1px solid rgba(61,216,224,0.25)" : "1px solid transparent",
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {/* ── Tab Content ── */}
+            {tab === "financial" && (
+              <>
+                <Header />
+                <TickerInput onSubmit={handleRun} disabled={isLoading} initialTicker={pendingTicker} isLoggedIn={isLoggedIn} onFeatureGate={handleFeatureGate} tokenBalance={user?.token_balance} />
+                {!rateLimited && (
+                  <PhaseStatus phase={phase} ingestionData={ingestionData} error={error} modelStatuses={modelStatuses} progressBarRef={progressBarRef} onCancel={cancel} onCancelModel={cancelModel} />
+                )}
+                {phase === "done" && analysisData && (
+                  <AnalysisResults
+                    data={analysisData}
+                    onHarmonize={handleHarmonize}
+                    harmonizing={harmonizing}
+                    harmonizationData={harmonizationData}
+                    onDebate={handleDebate}
+                    debating={debating}
+                    debateData={debateData}
+                    debateError={debateError}
+                    currentDebateMetric={currentDebateMetric}
+                    onReport={handleReport}
+                    generatingReport={generatingReport}
+                    ticker={pendingTicker}
+                    companyDomain={ingestionData?.domain ?? null}
+                    dataRange={ingestionData?.earliest_quarter && ingestionData?.latest_quarter ? {
+                      earliest: ingestionData.earliest_quarter,
+                      latest: ingestionData.latest_quarter,
+                      quarters: ingestionData.quarters_count ?? 0,
+                      chunks: ingestionData.chunks,
+                    } : null}
+                    onNewAnalysis={handleNewAnalysis}
+                    onAddToWatchlist={() => {/* TODO: watchlist */}}
+                    isLoggedIn={isLoggedIn}
+                    onFeatureGate={handleFeatureGate}
+                    modelStatuses={modelStatuses}
+                    tokenBalance={user?.token_balance}
+                  />
+                )}
+              </>
             )}
-            {phase === "done" && analysisData && (
-              <AnalysisResults
-                data={analysisData}
-                onHarmonize={handleHarmonize}
-                harmonizing={harmonizing}
-                harmonizationData={harmonizationData}
-                onDebate={handleDebate}
-                debating={debating}
-                debateData={debateData}
-                debateError={debateError}
-                currentDebateMetric={currentDebateMetric}
-                onReport={handleReport}
-                generatingReport={generatingReport}
-                ticker={pendingTicker}
-                companyDomain={ingestionData?.domain ?? null}
-                dataRange={ingestionData?.earliest_quarter && ingestionData?.latest_quarter ? {
-                  earliest: ingestionData.earliest_quarter,
-                  latest: ingestionData.latest_quarter,
-                  quarters: ingestionData.quarters_count ?? 0,
-                  chunks: ingestionData.chunks,
-                } : null}
-                onNewAnalysis={handleNewAnalysis}
-                onAddToWatchlist={() => {/* TODO: watchlist */}}
-                isLoggedIn={isLoggedIn}
-                onFeatureGate={handleFeatureGate}
-                modelStatuses={modelStatuses}
-                tokenBalance={user?.token_balance}
-              />
+
+            {tab === "potential" && (
+              <div className="flex flex-col items-center justify-center py-16 gap-4">
+                <svg width={48} height={48} fill="none" viewBox="0 0 24 24" style={{ opacity: 0.3 }}>
+                  <path d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" stroke="rgba(255,255,255,0.4)" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 15, fontFamily: "var(--font-mono)" }}>
+                  Potential & Future Value
+                </p>
+                <p style={{ color: "rgba(255,255,255,0.25)", fontSize: 13, maxWidth: 320, textAlign: "center", lineHeight: 1.6 }}>
+                  Growth prospects, market position, and competitive moat analysis.
+                </p>
+              </div>
+            )}
+
+            {tab === "price" && (
+              <div className="flex flex-col items-center justify-center py-16 gap-4">
+                <svg width={48} height={48} fill="none" viewBox="0 0 24 24" style={{ opacity: 0.3 }}>
+                  <path d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke="rgba(255,255,255,0.4)" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 15, fontFamily: "var(--font-mono)" }}>
+                  Price Evaluation
+                </p>
+                <p style={{ color: "rgba(255,255,255,0.25)", fontSize: 13, maxWidth: 320, textAlign: "center", lineHeight: 1.6 }}>
+                  Valuation metrics, fair value analysis, and price targets.
+                </p>
+              </div>
+            )}
+
+            {tab === "watchlist" && (
+              <div className="flex flex-col items-center justify-center py-16 gap-4">
+                <svg width={48} height={48} fill="none" viewBox="0 0 24 24" style={{ opacity: 0.3 }}>
+                  <path d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.562.562 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.562.562 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" stroke="rgba(255,255,255,0.4)" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 15, fontFamily: "var(--font-mono)" }}>
+                  Watchlist coming soon
+                </p>
+                <p style={{ color: "rgba(255,255,255,0.25)", fontSize: 13, maxWidth: 320, textAlign: "center", lineHeight: 1.6 }}>
+                  Track your favorite tickers and get notified when new filings drop.
+                </p>
+              </div>
             )}
           </GlassContainer>
         </div>
