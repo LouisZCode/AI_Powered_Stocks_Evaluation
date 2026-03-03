@@ -26,9 +26,10 @@ interface Props {
   onFeatureGate?: (msg: string) => void;
   modelStatuses?: ModelStatus[];
   dataRange?: { earliest: string; latest: string; quarters: number; chunks: number } | null;
+  tokenBalance?: number;
 }
 
-export default function AnalysisResults({ data, onHarmonize, harmonizing, harmonizationData, onDebate, debating, debateData, debateError, currentDebateMetric, onReport, generatingReport, ticker, companyDomain, onNewAnalysis, onAddToWatchlist, isLoggedIn = true, onFeatureGate, modelStatuses = [], dataRange }: Props) {
+export default function AnalysisResults({ data, onHarmonize, harmonizing, harmonizationData, onDebate, debating, debateData, debateError, currentDebateMetric, onReport, generatingReport, ticker, companyDomain, onNewAnalysis, onAddToWatchlist, isLoggedIn = true, onFeatureGate, modelStatuses = [], dataRange, tokenBalance }: Props) {
   const entries = Object.entries(data.evaluations);
   const cancelledModels = modelStatuses.filter((ms) => ms.status === "cancelled");
   const harmCardRef = useRef<HTMLDivElement>(null);
@@ -200,6 +201,7 @@ export default function AnalysisResults({ data, onHarmonize, harmonizing, harmon
             reveal={revealDebateTiles}
             isLoggedIn={isLoggedIn}
             onFeatureGate={onFeatureGate}
+            tokenBalance={tokenBalance}
             initialRatings={
               Object.fromEntries(
                 harmonizationData.harmonization_log

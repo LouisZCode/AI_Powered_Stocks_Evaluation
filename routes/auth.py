@@ -93,7 +93,7 @@ async def auth_callback(request: Request, db: AsyncSession = Depends(get_db)):
         if existing_user:
             user = existing_user
         else:
-            user = User(email=email, name=name, tier="hobbyist", token_balance=50)
+            user = User(email=email, name=name, tier="free", token_balance=100)
             db.add(user)
             await db.flush()
 
@@ -159,7 +159,7 @@ async def google_auth_callback(request: Request, db: AsyncSession = Depends(get_
         if existing_user:
             user = existing_user
         else:
-            user = User(email=email, name=name, tier="hobbyist", token_balance=50)
+            user = User(email=email, name=name, tier="free", token_balance=100)
             db.add(user)
             await db.flush()
 
@@ -212,7 +212,7 @@ async def deduct_tokens(
     if not user:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
-    cost = sum(5 if m.endswith("_deep") else 2 for m in request.models)
+    cost = sum(10 if m.endswith("_deep") else 2 for m in request.models)
 
     result = await db.execute(
         select(User).where(User.id == user.id).with_for_update()
@@ -233,6 +233,7 @@ async def deduct_tokens(
 
 
 class DeductDebateRequest(PydanticBaseModel):
+    models: list[str]
     metrics_count: int
     rounds: int
 
@@ -245,7 +246,7 @@ async def deduct_debate_tokens(
     if not user:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
-    cost = request.metrics_count * request.rounds  # Formula A
+    cost = sum(2 if m.endswith("_deep") else 1 for m in request.models) * request.metrics_count * request.rounds
 
     result = await db.execute(
         select(User).where(User.id == user.id).with_for_update()

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { getModels } from "@/lib/api";
+import { analysisCost } from "@/lib/tokenCosts";
 
 /** "claude_fast" → "Claude" */
 function formatModelName(key: string): string {
@@ -32,9 +33,10 @@ interface Props {
   initialTicker?: string;
   isLoggedIn?: boolean;
   onFeatureGate?: (msg: string) => void;
+  tokenBalance?: number;
 }
 
-export default function TickerInput({ onSubmit, disabled, initialTicker = "", isLoggedIn = true, onFeatureGate }: Props) {
+export default function TickerInput({ onSubmit, disabled, initialTicker = "", isLoggedIn = true, onFeatureGate, tokenBalance }: Props) {
   const [ticker, setTicker] = useState(initialTicker);
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [slots, setSlots] = useState<string[]>(["", "", ""]);
@@ -74,14 +76,19 @@ export default function TickerInput({ onSubmit, disabled, initialTicker = "", is
   };
 
   const selectedModels = slots.filter((s) => s !== "");
+  const uniqueModels = [...new Set(selectedModels)];
   const hasAtLeastOne = selectedModels.length >= 1;
+  const estimatedCost = analysisCost(uniqueModels);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const t = ticker.trim().toUpperCase();
     if (!t || !hasAtLeastOne) return;
-    // Deduplicate in case user picks same model in two slots
-    onSubmit(t, [...new Set(selectedModels)]);
+    if (isLoggedIn && tokenBalance !== undefined && tokenBalance < estimatedCost) {
+      onFeatureGate?.(`Insufficient tokens. This analysis costs ~${estimatedCost} tokens but you have ${tokenBalance}.`);
+      return;
+    }
+    onSubmit(t, uniqueModels);
   };
 
   return (
@@ -198,13 +205,20 @@ export default function TickerInput({ onSubmit, disabled, initialTicker = "", is
             className="w-full bg-white/[0.03] border border-white/[0.06] rounded-lg pl-7 pr-4 py-3 text-primary font-mono text-sm placeholder:text-muted/50 focus:outline-none focus:border-sky-300/30 transition-colors disabled:opacity-40"
           />
         </div>
-        <button
-          type="submit"
-          disabled={disabled || !ticker.trim() || !hasAtLeastOne}
-          className="w-full sm:w-auto px-6 py-3 bg-sky-300/10 border border-sky-300/20 rounded-lg text-sky-300 text-sm font-medium hover:bg-sky-300/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-        >
-          {disabled ? "Processing..." : "Evaluate"}
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            type="submit"
+            disabled={disabled || !ticker.trim() || !hasAtLeastOne}
+            className="w-full sm:w-auto px-6 py-3 bg-sky-300/10 border border-sky-300/20 rounded-lg text-sky-300 text-sm font-medium hover:bg-sky-300/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            {disabled ? "Processing..." : "Evaluate"}
+          </button>
+          {isLoggedIn && hasAtLeastOne && (
+            <span className="text-[11px] font-mono text-sky-300/70 whitespace-nowrap">
+              ~{estimatedCost} tokens
+            </span>
+          )}
+        </div>
       </div>
     </form>
   );

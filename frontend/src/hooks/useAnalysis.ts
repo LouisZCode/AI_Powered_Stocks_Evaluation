@@ -255,7 +255,18 @@ export function useAnalysis() {
 
   const debate = useCallback(async (ticker: string, models: string[], metrics: string[], rounds: number) => {
     setDebating(true);
-    setDebateData(null);
+    setDebateData((prev) => {
+      if (!prev) return null; // first debate — start clean
+      // Re-debate: strip only the metrics we're about to redo
+      const keptResults = { ...prev.debate_results };
+      for (const m of metrics) delete keptResults[m];
+      return {
+        ...prev,
+        debate_results: keptResults,
+        position_changes: prev.position_changes.filter((c) => !metrics.includes(c.metric)),
+        transcript: prev.transcript?.filter((t) => !metrics.includes(t.metric)) ?? [],
+      };
+    });
     setDebateError(null);
     setCurrentDebateMetric(null);
 

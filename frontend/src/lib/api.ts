@@ -89,13 +89,14 @@ export async function deductTokens(models: string[]): Promise<{ token_balance: n
 }
 
 export async function deductDebateTokens(
+  models: string[],
   metricsCount: number,
   rounds: number
 ): Promise<{ token_balance: number; cost: number }> {
   const res = await fetch(`${API}/auth/deduct-debate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ metrics_count: metricsCount, rounds }),
+    body: JSON.stringify({ models, metrics_count: metricsCount, rounds }),
     credentials: "include",
   });
   if (!res.ok) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import Script from "next/script";
 import { useAnalysis } from "@/hooks/useAnalysis";
 import { useAuth } from "@/hooks/useAuth";
@@ -94,20 +94,23 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
     harmonize(pendingTicker, Object.keys(analysisData.evaluations));
   }, [harmonize, pendingTicker, analysisData]);
 
-  const handleDebate = useCallback(async (models: string[], metrics: string[], rounds: number) => {
-    if (debateData && isLoggedIn) {
-      try {
-        await deductDebateTokens(metrics.length, rounds);
-        refreshUser();
-      } catch (err) {
-        if (err instanceof Error && err.message === "__INSUFFICIENT_TOKENS__") {
-          setGateMessage("Insufficient tokens for re-debate.");
-        }
-        return;
-      }
-    }
+  const handleDebate = useCallback((models: string[], metrics: string[], rounds: number) => {
     debate(pendingTicker, models, metrics, rounds);
-  }, [debateData, isLoggedIn, debate, pendingTicker, refreshUser]);
+  }, [debate, pendingTicker]);
+
+  // Post-deduct debate tokens after successful completion
+  const lastDeductedDebateRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!debating && debateData && !debateError && isLoggedIn) {
+      // Build a unique key to prevent double-deduction on re-renders
+      const key = `${debateData.models_used.join(",")}_${Object.keys(debateData.debate_results).length}_${debateData.rounds}`;
+      if (lastDeductedDebateRef.current === key) return;
+      lastDeductedDebateRef.current = key;
+      deductDebateTokens(debateData.models_used, Object.keys(debateData.debate_results).length, debateData.rounds)
+        .then(() => refreshUser())
+        .catch(() => refreshUser());
+    }
+  }, [debating, debateData, debateError, isLoggedIn, refreshUser]);
 
   const handleReport = useCallback(async () => {
     if (!harmonizationData || generatingReport) return;
@@ -515,7 +518,7 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
         <div className={`relative z-10 ${transitioning === "in" ? "animate-analyzeEnter" : ""}`}>
           <GlassContainer>
             <Header />
-            <TickerInput onSubmit={handleRun} disabled={isLoading} initialTicker={pendingTicker} isLoggedIn={isLoggedIn} onFeatureGate={handleFeatureGate} />
+            <TickerInput onSubmit={handleRun} disabled={isLoading} initialTicker={pendingTicker} isLoggedIn={isLoggedIn} onFeatureGate={handleFeatureGate} tokenBalance={user?.token_balance} />
             {!rateLimited && (
               <PhaseStatus phase={phase} ingestionData={ingestionData} error={error} modelStatuses={modelStatuses} progressBarRef={progressBarRef} onCancel={cancel} onCancelModel={cancelModel} />
             )}
@@ -545,6 +548,7 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
                 isLoggedIn={isLoggedIn}
                 onFeatureGate={handleFeatureGate}
                 modelStatuses={modelStatuses}
+                tokenBalance={user?.token_balance}
               />
             )}
           </GlassContainer>
