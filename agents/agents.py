@@ -25,12 +25,12 @@ financial_strenght_system_prompt = prompts["QUARTERLY_RESULTS_EXPERT"]
 AVAILABLE_MODELS = {
     "grok_fast": "xai:grok-4-fast-non-reasoning",                                                                                                                                                                                                     
     "openai_fast": "openai:gpt-5-mini",                                                                                                                                                                                                                   
-    "claude_fast": "anthropic:claude-haiku-4-5",                                                                                                                                                                                              
+    "claude_fast": "anthropic:claude-3-haiku-20240307",                                                                                                                                                                                              
     "gemini_fast": "google_genai:gemini-2.5-flash",
     "mistral_fast": "mistral-small-2506",
     "grok_deep": "xai:grok-4-fast-reasoning",                                                                                                                                                                                                     
     "openai_deep": "openai:gpt-5.1",                                                                                                                                                                                                                   
-    "claude_deep": "anthropic:claude-sonnet-4-5",                                                                                                                                                                                              
+    "claude_deep": "anthropic:claude-sonnet-4-6-20250819",                                                                                                                                                                                              
     "gemini_deep": "google_genai:gemini-2.5-pro",
     "mistral_deep": "mistral-large-2411"                                                                                                 
 }
