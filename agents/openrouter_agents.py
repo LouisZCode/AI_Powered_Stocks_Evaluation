@@ -68,3 +68,15 @@ def create_openrouter_debate_agent(model_key: str, action_label: str = "Agora"):
         system_prompt=debater_system_prompt,
         tools=[],
     )
+
+
+def create_openrouter_summary_model(action_label: str = "Agora | summary"):
+    """Return a raw ChatOpenAI for cheap debate history compression (no agent/tools needed)."""
+    if not OPENROUTER_API_KEY:
+        raise ValueError("OPENROUTER_API_KEY not set")
+    return ChatOpenAI(
+        base_url=OPENROUTER_BASE_URL,
+        api_key=OPENROUTER_API_KEY,
+        model=OPENROUTER_AVAILABLE_MODELS["mistral_fast"],
+        default_headers={"HTTP-Referer": action_label},
+    )

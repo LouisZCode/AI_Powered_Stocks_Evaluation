@@ -138,7 +138,6 @@ async def evaluate_financials(
                 usage_info = extract_usage_from_response(response)
                 log_llm_cost(model_name, log_file, usage_info, provider=provider_tag, action="analysis")
 
-                print(f"[PROVIDER] {model_name} succeeded via {provider_tag}")
                 return model_name, response["structured_response"], usage_info, provider_tag
 
             except asyncio.TimeoutError:

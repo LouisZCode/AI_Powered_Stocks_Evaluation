@@ -136,23 +136,33 @@ export async function debateMetrics(
   rounds: number,
   sessionId?: string
 ): Promise<DebateResponse> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10 * 60 * 1000); // 10 min
+
   const params = sessionId ? `?session_id=${sessionId}` : "";
-  const res = await fetch(`${API}/debate/financials/${ticker}${params}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ models, metrics, rounds }),
-    credentials: "include",
-  });
-  if (!res.ok) {
-    let detail = "Debate failed";
-    try {
-      const body = await res.json();
-      if (body.detail) detail = body.detail;
-      if (body.error) detail = body.error;
-    } catch {}
-    throw new Error(detail);
+  try {
+    const res = await fetch(`${API}/debate/financials/${ticker}${params}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ models, metrics, rounds }),
+      credentials: "include",
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    if (!res.ok) {
+      let detail = "Debate failed";
+      try {
+        const body = await res.json();
+        if (body.detail) detail = body.detail;
+        if (body.error) detail = body.error;
+      } catch {}
+      throw new Error(detail);
+    }
+    return res.json();
+  } catch (err) {
+    clearTimeout(timeoutId);
+    throw err;
   }
-  return res.json();
 }
 
 export async function generateReport(

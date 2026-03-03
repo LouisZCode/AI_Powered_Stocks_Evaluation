@@ -306,16 +306,15 @@ export default function DebateSection({
         </p>
       )}
 
+      {/* Wait notice — standalone between button and animation */}
+      {debating && (
+        <p className="text-sm text-amber-300/90 font-mono text-center animate-fadeIn">
+          This will take some minutes, please leave this tab open.
+        </p>
+      )}
+
       {/* Live Transcript — progress simulation */}
       {debating && (() => {
-        const hasDeep = selectedModels.some((m) => m.endsWith("_deep"));
-        const waitMsg =
-          rounds >= 3 && hasDeep
-            ? "Deep models with multiple rounds — this will take several minutes. Feel free to keep this tab open."
-            : rounds >= 2 && hasDeep
-              ? "Deep models take a bit longer — expect a couple of minutes."
-              : null;
-
         return (
           <div className="rounded-lg bg-white/[0.05] border border-amber-300/10 p-3 flex flex-col items-center gap-2 animate-fadeIn">
             <div className="flex items-center gap-2">
@@ -332,11 +331,6 @@ export default function DebateSection({
             <p key={phaseIndex} className="text-xs text-muted font-mono animate-fadeIn text-center">
               {phases[phaseIndex]}
             </p>
-            {waitMsg && (
-              <p className="text-[10px] text-amber-300/50 font-mono text-center mt-1">
-                {waitMsg}
-              </p>
-            )}
           </div>
         );
       })()}

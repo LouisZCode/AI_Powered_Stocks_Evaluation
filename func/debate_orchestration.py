@@ -3,15 +3,22 @@ import re
 from collections import Counter
 
 from agents.agents import create_debate_agent, load_prompts
-from agents.openrouter_agents import create_openrouter_debate_agent, is_openrouter_available
-from logs import extract_usage_from_response, log_llm_cost, log_cost_summary
+from agents.openrouter_agents import (
+    create_openrouter_debate_agent,
+    create_openrouter_summary_model,
+    is_openrouter_available,
+)
+from logs import extract_usage_from_response, log_llm_cost, log_cost_summary, log_debate_compression
 
 prompts = load_prompts()
 DEBATE_ROUND1 = prompts["DEBATE_ROUND1"]
 DEBATE_REVIEW = prompts["DEBATE_REVIEW"]
 DEBATE_FINAL = prompts["DEBATE_FINAL"]
+DEBATE_SUMMARY = prompts["DEBATE_SUMMARY"]
 
 VALID_RATINGS = {'excellent', 'good', 'neutral', 'bad', 'horrible'}
+COMPRESSION_WINDOW = 1
+AGENT_TIMEOUT = 150  # seconds – matches analysis route
 
 
 async def run_debate(
@@ -113,6 +120,9 @@ async def _debate_single_metric(
         initial_ratings[model_name] = rating
 
     # Round 1: State positions (parallel)
+    if log_file:
+        with open(log_file, "a") as f:
+            f.write(f"\n── Round 1: {metric} ──\n")
     or_agents = or_debate_agents or {}
     round1_tasks = []
     for model_name, agent in debate_agents.items():
@@ -142,12 +152,41 @@ async def _debate_single_metric(
             'llm': model_name, 'content': response
         })
     # Rounds 2 to N: Review and respond (parallel per round)
+    compressed_summary = None
+    last_compressed_up_to = 0
     for round_num in range(2, max_rounds + 1):
+        if log_file:
+            with open(log_file, "a") as f:
+                f.write(f"\n── Round {round_num}: {metric} ──\n")
+
+        # Compress old rounds when history exceeds the sliding window
+        rounds_completed = round_num - 1
+        compress_up_to = rounds_completed - COMPRESSION_WINDOW
+        if compress_up_to >= 2 and compress_up_to > last_compressed_up_to:
+            compressed_summary, summary_cost = await _compress_history(
+                positions, metric, ticker, failed_models,
+                compress_up_to, log_file=log_file,
+                triggered_by=f"before R{round_num}",
+            )
+            if summary_cost:
+                cost_entries.append(summary_cost)
+                if log_file:
+                    inp = summary_cost.get("input_tokens", 0)
+                    out = summary_cost.get("output_tokens", 0)
+                    kept_start = compress_up_to + 1
+                    kept_str = f"R{kept_start}" if kept_start == rounds_completed else f"R{kept_start}..R{rounds_completed}"
+                    with open(log_file, "a") as f:
+                        f.write(f"  ⟳ compressed rounds 1..{compress_up_to}, keeping {kept_str} verbatim ({inp:,} in / {out:,} out)\n\n")
+            last_compressed_up_to = compress_up_to
+
         review_tasks = []
         for model_name, agent in debate_agents.items():
             if model_name in failed_models:
                 continue
-            other_positions = _format_other_positions(positions, model_name, failed_models)
+            other_positions = _format_other_positions_windowed(
+                positions, model_name, compressed_summary,
+                COMPRESSION_WINDOW, failed_models,
+            )
             prompt = DEBATE_REVIEW.format(
                 metric=metric,
                 ticker=ticker,
@@ -183,12 +222,32 @@ async def _debate_single_metric(
                 'llm': model_name, 'content': response
             })
 
+    # Re-compress before Final if new rounds fell outside the window
+    compress_up_to_final = max_rounds - COMPRESSION_WINDOW
+    if compress_up_to_final >= 2 and compress_up_to_final > last_compressed_up_to:
+        compressed_summary, summary_cost = await _compress_history(
+            positions, metric, ticker, failed_models,
+            compress_up_to_final, log_file=log_file,
+            triggered_by="before Final",
+        )
+        if summary_cost:
+            cost_entries.append(summary_cost)
+
     # Final round: Commit to stance (parallel)
+    if log_file:
+        with open(log_file, "a") as f:
+            f.write(f"\n── Final: {metric} ──\n")
+            if compressed_summary:
+                kept_start = compress_up_to_final + 1
+                kept_str = f"R{kept_start}" if kept_start == max_rounds else f"R{kept_start}..R{max_rounds}"
+                f.write(f"  ⟳ using summary of rounds 1..{compress_up_to_final}, {kept_str} verbatim\n\n")
     final_tasks = []
     for model_name, agent in debate_agents.items():
         if model_name in failed_models:
             continue
-        history_summary = _format_history_summary(positions, failed_models)
+        history_summary = _format_history_with_window(
+            positions, compressed_summary, COMPRESSION_WINDOW, failed_models
+        )
         prompt = DEBATE_FINAL.format(
             metric=metric,
             ticker=ticker,
@@ -259,17 +318,22 @@ async def _invoke_agent(
         if current_agent is None:
             continue
         try:
-            response = await current_agent.ainvoke(
-                {"messages": [{"role": "user", "content": prompt}]}
+            response = await asyncio.wait_for(
+                current_agent.ainvoke(
+                    {"messages": [{"role": "user", "content": prompt}]}
+                ),
+                timeout=AGENT_TIMEOUT,
             )
             usage_info = extract_usage_from_response(response)
             usage_info["provider"] = tag
             messages = response.get("messages", [])
             for msg in reversed(messages):
                 if hasattr(msg, 'content') and msg.content:
-                    print(f"[DEBATE] {model_name} succeeded via {tag}")
                     return (model_name, msg.content, usage_info)
             return (model_name, "", usage_info)
+        except asyncio.TimeoutError:
+            print(f"[DEBATE] {model_name} timed out via {tag}")
+            continue
         except Exception as e:
             print(f"[DEBATE] {model_name} failed via {tag}: {e}")
             continue
@@ -288,6 +352,33 @@ def _format_other_positions(positions: dict, exclude_model: str, failed_models: 
     return "\n\n".join(lines)
 
 
+def _format_other_positions_windowed(
+    positions: dict, exclude_model: str,
+    compressed_summary: str | None,
+    window_size: int, failed_models: set,
+) -> str:
+    """Format other models' positions with compressed old rounds + recent verbatim."""
+    if not compressed_summary:
+        return _format_other_positions(positions, exclude_model, failed_models)
+
+    # Recent rounds only (within window) — verbatim per model
+    recent_lines = []
+    for model_name, pos in positions.items():
+        if model_name == exclude_model or model_name in failed_models:
+            continue
+        recent_entries = pos['history'][-window_size:]
+        if recent_entries:
+            recent_lines.append(f"{model_name} (current: {pos['rating']})")
+            start_round = len(pos['history']) - len(recent_entries) + 1
+            for i, entry in enumerate(recent_entries):
+                recent_lines.append(f"  Round {start_round + i}: {entry}")
+
+    return (
+        f"Summary of earlier rounds:\n{compressed_summary}\n\n"
+        f"Recent positions:\n" + "\n".join(recent_lines)
+    )
+
+
 def _format_history_summary(positions: dict, failed_models: set = frozenset()) -> str:
     """Format debate history for the final round prompt."""
     lines = []
@@ -298,6 +389,91 @@ def _format_history_summary(positions: dict, failed_models: set = frozenset()) -
         for i, entry in enumerate(pos['history']):
             lines.append(f"  Round {i+1}: {entry}")
     return "\n".join(lines)
+
+
+async def _compress_history(
+    positions: dict, metric: str, ticker: str,
+    failed_models: set, compress_up_to: int,
+    log_file: str = None, triggered_by: str = "",
+) -> tuple[str, dict]:
+    """Compress rounds 1..compress_up_to into a summary table via a cheap LLM call."""
+    lines = []
+    for model_name, pos in positions.items():
+        if model_name in failed_models:
+            continue
+        lines.append(f"{model_name} (current: {pos['rating']})")
+        for i, entry in enumerate(pos['history'][:compress_up_to]):
+            lines.append(f"  Round {i+1}: {entry}")
+    history_text = "\n".join(lines)
+
+    prompt = DEBATE_SUMMARY.format(
+        metric=metric, ticker=ticker, history=history_text
+    )
+
+    try:
+        summary_model = create_openrouter_summary_model(
+            action_label=f"Agora | summary | {metric}"
+        )
+        response = await summary_model.ainvoke(prompt)
+        usage_info = {}
+        if hasattr(response, 'usage_metadata') and response.usage_metadata:
+            um = response.usage_metadata
+            meta = getattr(response, "response_metadata", {}) or {}
+            token_usage = meta.get("token_usage", {}) or {}
+            cost = token_usage.get("cost", 0) or meta.get("cost", 0)
+            usage_info = {
+                "input_tokens": um.get("input_tokens", 0),
+                "output_tokens": um.get("output_tokens", 0),
+                "reasoning_tokens": 0,
+                "cost": float(cost) if cost else 0,
+                "provider": "openrouter",
+            }
+        cost_entry = {
+            "model_name": "mistral_fast",
+            "provider": "openrouter",
+            "input_tokens": usage_info.get("input_tokens", 0),
+            "output_tokens": usage_info.get("output_tokens", 0),
+            "reasoning_tokens": 0,
+            "cost": usage_info.get("cost", 0),
+        }
+        if log_file and usage_info:
+            log_llm_cost("mistral_fast", log_file, usage_info,
+                         provider="openrouter", action=f"debate-summarize-{metric}")
+        if log_file:
+            log_debate_compression(
+                log_file, metric, compress_up_to,
+                response.content, cost_entry,
+                triggered_by=triggered_by,
+            )
+        return response.content, cost_entry
+    except Exception as e:
+        print(f"[DEBATE] Summary compression failed: {e}, using full history")
+        return "\n".join(lines), {}
+
+
+def _format_history_with_window(
+    positions: dict, compressed_summary: str | None,
+    window_size: int, failed_models: set,
+) -> str:
+    """Format history using compressed summary for old rounds + verbatim recent rounds."""
+    if not compressed_summary:
+        return _format_history_summary(positions, failed_models)
+
+    recent_lines = []
+    for model_name, pos in positions.items():
+        if model_name in failed_models:
+            continue
+        recent_entries = pos['history'][-window_size:]
+        if recent_entries:
+            recent_lines.append(f"{model_name} (current: {pos['rating']})")
+            start_round = len(pos['history']) - len(recent_entries) + 1
+            for i, entry in enumerate(recent_entries):
+                recent_lines.append(f"  Round {start_round + i}: {entry}")
+
+    return (
+        f"Summary of earlier rounds:\n{compressed_summary}\n\n"
+        f"Recent rounds (full context):\n" + "\n".join(recent_lines)
+    )
 
 
 def _extract_updated_rating(response: str) -> str | None:

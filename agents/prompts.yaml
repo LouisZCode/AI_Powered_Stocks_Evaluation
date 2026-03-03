@@ -172,3 +172,17 @@ DEBATE_FINAL: |
   Format your response EXACTLY as:
   FINAL RATING: [rating]
   FINAL REASON: [one sentence explaining your final position]
+
+DEBATE_SUMMARY: |
+  Compress the following debate history on "{metric}" for {ticker} into a concise summary table.
+
+  For each analyst, output one row with:
+  - Analyst name
+  - Current rating
+  - Key argument (1 sentence max)
+  - Position changed? (no, or "yes: from X to Y")
+
+  Debate history:
+  {history}
+
+  Output a markdown table. Be extremely concise.

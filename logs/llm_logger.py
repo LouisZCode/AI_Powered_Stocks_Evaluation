@@ -16,10 +16,11 @@ def ensure_log(ticker: str, session_id: str = None) -> str:
     """
     Returns the log file path for a ticker on today's date.
     Creates the file with a header if it doesn't exist yet.
-    When session_id is provided, logs go into a session subfolder.
+    When session_id is provided, logs go into a session subfolder
+    named {session_id}_{TICKER}_{date}.
     """
     if session_id:
-        folder = os.path.join(LOGS_FOLDER, session_id)
+        folder = _resolve_session_folder(session_id, ticker)
     else:
         folder = LOGS_FOLDER
     os.makedirs(folder, exist_ok=True)
@@ -37,6 +38,22 @@ def ensure_log(ticker: str, session_id: str = None) -> str:
             f.write(f"{'='*60}\n\n")
 
     return filepath
+
+
+def _resolve_session_folder(session_id: str, ticker_hint: str) -> str:
+    """Find existing session folder or create a new one with ticker+date in the name."""
+    os.makedirs(LOGS_FOLDER, exist_ok=True)
+
+    # Look for existing folder that belongs to this session
+    for name in os.listdir(LOGS_FOLDER):
+        if name == session_id or name.startswith(f"{session_id}_"):
+            return os.path.join(LOGS_FOLDER, name)
+
+    # First call for this session — create {session_id}_{TICKER}_{date}
+    date_str = datetime.now().strftime("%Y-%m-%d")
+    clean_ticker = ticker_hint.split("_")[0].upper()
+    folder_name = f"{session_id}_{clean_ticker}_{date_str}"
+    return os.path.join(LOGS_FOLDER, folder_name)
 
 
 def append_session_cost(log_file: str, cost_entries: list[dict], label: str = "Analysis"):
@@ -71,13 +88,48 @@ def append_session_cost(log_file: str, cost_entries: list[dict], label: str = "A
         f.write("\n")
 
 
+def log_debate_compression(
+    log_file: str, metric: str, rounds_compressed: int,
+    compressed_content: str, cost_entry: dict = None,
+    triggered_by: str = "",
+):
+    """
+    Log a debate history compression to compressions.log in the session folder.
+
+    Args:
+        log_file: Any log file in the session folder (used to derive the folder path)
+        metric: The metric being debated
+        rounds_compressed: How many rounds were compressed (1..N)
+        compressed_content: The markdown table produced by the summary LLM
+        cost_entry: Optional cost dict with input_tokens, output_tokens, cost
+        triggered_by: Context string (e.g. "before R4", "before Final")
+    """
+    compressions_file = os.path.join(os.path.dirname(log_file), "compressions.log")
+    timestamp = datetime.now().strftime("%H:%M:%S")
+
+    trigger = f" | {triggered_by}" if triggered_by else ""
+    with open(compressions_file, "a", encoding="utf-8") as f:
+        f.write(f"[{timestamp}] COMPRESSION — {metric}{trigger} | rounds 1..{rounds_compressed}\n")
+        if cost_entry:
+            inp = cost_entry.get("input_tokens", 0)
+            out = cost_entry.get("output_tokens", 0)
+            cost = cost_entry.get("cost", 0)
+            if cost and cost > 0:
+                f.write(f"  tokens: {inp:,} in / {out:,} out  ${cost:.4f}\n")
+            else:
+                f.write(f"  tokens: {inp:,} in / {out:,} out\n")
+        f.write(f"  result:\n")
+        for line in compressed_content.split("\n"):
+            f.write(f"    {line}\n")
+        f.write("\n")
+
+
 def log_data_source(ticker: str, log_file: str, source: str):
     """Logs which data pipeline provided the financial data (SEC, Yahoo, Finnhub, Database)."""
     timestamp = datetime.now().strftime("%H:%M:%S")
     msg = f"[{timestamp}] {ticker} → Financial data source: {source.upper()}"
     with open(log_file, "a", encoding="utf-8") as f:
         f.write(msg + "\n\n")
-    print(msg)
 
 
 def extract_usage_from_response(response: dict) -> dict:
@@ -147,7 +199,6 @@ def log_llm_cost(model_name: str, log_file: str, usage_info: dict, provider: str
 
     with open(log_file, "a", encoding="utf-8") as f:
         f.write(msg + "\n")
-    print(msg)
 
 
 def log_cost_summary(log_file: str, cost_entries: list[dict], label: str = "Analysis"):
@@ -199,7 +250,6 @@ def log_cost_summary(log_file: str, cost_entries: list[dict], label: str = "Anal
     block = "\n".join(lines)
     with open(log_file, "a", encoding="utf-8") as f:
         f.write(block + "\n")
-    print(block)
 
 
 def log_llm_start(llm_name: str, log_file: str, provider: str = ""):
@@ -208,7 +258,6 @@ def log_llm_start(llm_name: str, log_file: str, provider: str = ""):
     tag = f" [{provider}]" if provider else ""
     with open(log_file, "a", encoding="utf-8") as f:
         f.write(f"[{timestamp}] {llm_name.upper()}{tag} → launched\n")
-    print(f"[{timestamp}] {llm_name.upper()}{tag} → launched")
 
 
 def log_llm_finish(llm_name: str, log_file: str, elapsed_time: float, provider: str = ""):
@@ -217,7 +266,6 @@ def log_llm_finish(llm_name: str, log_file: str, elapsed_time: float, provider: 
     tag = f" [{provider}]" if provider else ""
     with open(log_file, "a", encoding="utf-8") as f:
         f.write(f"[{timestamp}] {llm_name.upper()}{tag} → finished ({elapsed_time:.2f}s)\n")
-    print(f"[{timestamp}] {llm_name.upper()}{tag} → finished ({elapsed_time:.2f}s)")
 
 
 def log_llm_retry(llm_name: str, log_file: str, attempt: int, max_attempts: int, error: str, wait_seconds: float):
