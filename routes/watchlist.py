@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete
+from sqlalchemy import select, delete, func
 
 from database.connection import get_db
 from database.orm import Watchlist, LLMFinancialAnalysis
@@ -64,6 +64,23 @@ async def remove_from_watchlist(
 
     await db.commit()
     return {"ticker": ticker, "message": f"{ticker} removed from watchlist"}
+
+
+@router.get("/search")
+async def search_analyzed_tickers(
+    q: str = "",
+    db: AsyncSession = Depends(get_db),
+):
+    query = (
+        select(func.distinct(LLMFinancialAnalysis.ticker))
+        .order_by(LLMFinancialAnalysis.ticker)
+        .limit(20)
+    )
+    if q.strip():
+        query = query.where(LLMFinancialAnalysis.ticker.ilike(f"%{q.strip()}%"))
+    result = await db.execute(query)
+    tickers = [row[0] for row in result.all()]
+    return {"tickers": tickers}
 
 
 @router.get("/")

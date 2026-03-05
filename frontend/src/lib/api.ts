@@ -205,6 +205,15 @@ export async function getWatchlist(): Promise<WatchlistEntry[]> {
   return res.json();
 }
 
+export async function searchAnalyzedTickers(query: string): Promise<string[]> {
+  const res = await fetch(`${API}/watchlist/search?q=${encodeURIComponent(query)}`, {
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error("Failed to search tickers");
+  const data = await res.json();
+  return data.tickers;
+}
+
 // ── Report ──
 
 export async function generateReport(

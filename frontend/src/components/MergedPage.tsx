@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import Script from "next/script";
 import { useAnalysis } from "@/hooks/useAnalysis";
 import { useAuth } from "@/hooks/useAuth";
-import { generateReport, deductTokens, deductDebateTokens, addToWatchlist, getWatchlist, removeFromWatchlist } from "@/lib/api";
+import { generateReport, deductTokens, deductDebateTokens, addToWatchlist, getWatchlist, removeFromWatchlist, searchAnalyzedTickers } from "@/lib/api";
 import type { WatchlistEntry } from "@/lib/api";
 import ScoreGauge from "@/components/ScoreGauge";
 import ParticleCanvas from "@/components/ParticleCanvas";
@@ -75,6 +75,11 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
   const [generatingReport, setGeneratingReport] = useState(false);
   const [gateMessage, setGateMessage] = useState<string | null>(null);
   const [watchlistData, setWatchlistData] = useState<WatchlistEntry[]>([]);
+  const [tickerSearch, setTickerSearch] = useState("");
+  const [searchResults, setSearchResults] = useState<string[]>([]);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
 
   // Fetch watchlist when tab switches to watchlist
   useEffect(() => {
@@ -82,6 +87,33 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
       getWatchlist().then(setWatchlistData).catch(() => {});
     }
   }, [tab, isLoggedIn]);
+
+  // Debounced search for analyzed tickers
+  useEffect(() => {
+    if (!searchOpen) return;
+    const timer = setTimeout(() => {
+      setSearchLoading(true);
+      searchAnalyzedTickers(tickerSearch)
+        .then((tickers) => {
+          const watchlistTickers = new Set(watchlistData.map((e) => e.ticker));
+          setSearchResults(tickers.filter((t) => !watchlistTickers.has(t)));
+        })
+        .catch(() => setSearchResults([]))
+        .finally(() => setSearchLoading(false));
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [tickerSearch, searchOpen, watchlistData]);
+
+  // Click-outside to close search dropdown
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setSearchOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   // Deduct tokens after analysis completes, then refresh balance
   useEffect(() => {
@@ -640,26 +672,111 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
                       Sign in to use your watchlist
                     </p>
                   </div>
-                ) : watchlistData.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-16 gap-3">
-                    <svg width={40} height={40} fill="none" viewBox="0 0 24 24" style={{ opacity: 0.25 }}>
-                      <path d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.562.562 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.562.562 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" stroke="rgba(255,255,255,0.35)" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                    <p style={{ color: "rgba(255,255,255,0.35)", fontSize: 14, fontFamily: "var(--font-mono)" }}>
-                      Your watchlist is empty
-                    </p>
-                    <p style={{ color: "rgba(255,255,255,0.2)", fontSize: 12, maxWidth: 280, textAlign: "center", lineHeight: 1.6 }}>
-                      Run an analysis and click &quot;Add to Watchlist&quot; to start tracking tickers.
-                    </p>
-                  </div>
                 ) : (
                   <>
+                    {/* Search bar */}
+                    <div ref={searchRef} className="relative">
+                      <div
+                        className="flex items-center gap-2 px-3 py-2 rounded-lg transition-colors"
+                        style={{
+                          background: "rgba(255,255,255,0.04)",
+                          border: searchOpen ? "1px solid rgba(61,216,224,0.3)" : "1px solid rgba(255,255,255,0.08)",
+                        }}
+                      >
+                        <svg width={16} height={16} fill="none" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
+                          <path d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" stroke="rgba(255,255,255,0.3)" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                        <input
+                          type="text"
+                          placeholder="Search analyzed tickers..."
+                          value={tickerSearch}
+                          onChange={(e) => { setTickerSearch(e.target.value.toUpperCase()); setSearchOpen(true); }}
+                          onFocus={() => setSearchOpen(true)}
+                          autoComplete="off"
+                          className="flex-1 bg-transparent outline-none text-sm text-white placeholder:text-white/25"
+                          style={{ fontFamily: "var(--font-mono)", letterSpacing: 0.5 }}
+                        />
+                        {searchLoading && (
+                          <svg className="animate-spin" width={14} height={14} viewBox="0 0 24 24" fill="none">
+                            <circle cx={12} cy={12} r={10} stroke="rgba(61,216,224,0.3)" strokeWidth={2} />
+                            <path d="M12 2a10 10 0 019.95 9" stroke="#3dd8e0" strokeWidth={2} strokeLinecap="round" />
+                          </svg>
+                        )}
+                      </div>
+
+                      {/* Dropdown */}
+                      {searchOpen && (
+                        <div
+                          className="absolute left-0 right-0 mt-1 rounded-lg overflow-hidden z-50"
+                          style={{
+                            background: "rgba(15,19,27,0.97)",
+                            border: "1px solid rgba(255,255,255,0.1)",
+                            boxShadow: "0 12px 32px rgba(0,0,0,0.5)",
+                            maxHeight: 260,
+                            overflowY: "auto",
+                          }}
+                        >
+                          {searchResults.length > 0 ? (
+                            searchResults.map((ticker) => (
+                              <button
+                                key={ticker}
+                                className="flex items-center justify-between w-full px-3 py-2 text-left hover:bg-white/[0.06] transition-colors cursor-pointer"
+                                onClick={async () => {
+                                  try {
+                                    await addToWatchlist(ticker);
+                                    setSearchResults((prev) => prev.filter((t) => t !== ticker));
+                                    setSearchOpen(false);
+                                    setTickerSearch("");
+                                    const fresh = await getWatchlist();
+                                    setWatchlistData(fresh);
+                                  } catch (e: unknown) {
+                                    if (e instanceof Error && e.message === "__ALREADY_IN_WATCHLIST__") {
+                                      setSearchResults((prev) => prev.filter((t) => t !== ticker));
+                                    }
+                                  }
+                                }}
+                              >
+                                <span className="font-mono text-sm text-white">{ticker}</span>
+                                <span className="text-xs text-[#3dd8e0]/70 font-mono">+ Add</span>
+                              </button>
+                            ))
+                          ) : !searchLoading ? (
+                            <div className="px-3 py-3 text-center">
+                              <p className="text-xs text-white/30 font-mono">No matches found</p>
+                            </div>
+                          ) : null}
+                          <div className="px-3 py-2 border-t border-white/[0.06]">
+                            <p className="text-[11px] text-white/20 text-center">
+                              Don&apos;t see your ticker? Run an analysis first.
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Watchlist content */}
+                    {watchlistData.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-12 gap-3">
+                        <svg width={40} height={40} fill="none" viewBox="0 0 24 24" style={{ opacity: 0.25 }}>
+                          <path d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.562.562 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.562.562 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" stroke="rgba(255,255,255,0.35)" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                        <p style={{ color: "rgba(255,255,255,0.35)", fontSize: 14, fontFamily: "var(--font-mono)" }}>
+                          Your watchlist is empty
+                        </p>
+                        <p style={{ color: "rgba(255,255,255,0.2)", fontSize: 12, maxWidth: 280, textAlign: "center", lineHeight: 1.6 }}>
+                          Search above or run an analysis to start tracking tickers.
+                        </p>
+                      </div>
+                    ) : (
+                  <>
                     {/* Column headers */}
-                    <div className="grid grid-cols-[1fr_80px_80px_80px_32px] items-center px-3 pb-1 border-b border-white/[0.06]">
+                    <div className="grid grid-cols-[auto_40px_72px_72px_72px_1fr_32px] gap-x-4 items-center px-3 pb-1 border-b border-white/[0.06]">
                       <span className="text-[10px] uppercase tracking-wider text-white/60 font-mono">Ticker</span>
+                      <span />
                       <span className="text-[10px] uppercase tracking-wider text-white/60 font-mono text-center">Financial</span>
                       <span className="text-[10px] uppercase tracking-wider text-white/60 font-mono text-center">Potential</span>
                       <span className="text-[10px] uppercase tracking-wider text-white/60 font-mono text-center">Price</span>
+                      <span />
                       <span />
                     </div>
 
@@ -682,34 +799,40 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
                       return (
                         <div
                           key={entry.ticker}
-                          className="grid grid-cols-[1fr_80px_80px_80px_32px] items-center px-3 py-3 rounded-lg bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.05] transition-colors"
+                          className="grid grid-cols-[auto_40px_72px_72px_72px_1fr_32px] gap-x-4 items-center px-3 py-3 rounded-lg bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.05] transition-colors"
                         >
                           {/* Ticker */}
-                          <div className="flex flex-col">
-                            <span className="font-mono text-sm font-semibold text-white">{entry.ticker}</span>
-                            <span className="text-[10px] text-white/20 font-mono">
-                              {entry.analyses ? `${entry.analyses.length} model${entry.analyses.length !== 1 ? "s" : ""}` : "not analyzed"}
-                            </span>
-                          </div>
+                          <span className="font-mono text-sm font-semibold text-white">{entry.ticker}</span>
+
+                          {/* Spacer between ticker and scores */}
+                          <div />
 
                           {/* Financial gauge */}
-                          <div className="flex justify-center">
+                          <div className="flex flex-col items-center justify-center">
                             {avgScore !== null ? (
-                              <ScoreGauge score={avgScore} size={56} />
+                              <ScoreGauge score={avgScore} size={48} />
                             ) : (
-                              <span className="text-[10px] text-white/15 font-mono">—</span>
+                              <>
+                                <ScoreGauge empty size={48} />
+                                <span className="text-[8px] text-white/20 font-mono -mt-0.5">needs analysis</span>
+                              </>
                             )}
                           </div>
 
                           {/* Potential — placeholder */}
-                          <div className="flex justify-center">
-                            <span className="text-[10px] text-white/15 font-mono">—</span>
+                          <div className="flex flex-col items-center justify-center">
+                            <ScoreGauge empty size={48} />
+                            <span className="text-[8px] text-white/20 font-mono -mt-0.5">needs analysis</span>
                           </div>
 
                           {/* Price — placeholder */}
-                          <div className="flex justify-center">
-                            <span className="text-[10px] text-white/15 font-mono">—</span>
+                          <div className="flex flex-col items-center justify-center">
+                            <ScoreGauge empty size={48} />
+                            <span className="text-[8px] text-white/20 font-mono -mt-0.5">needs analysis</span>
                           </div>
+
+                          {/* Spacer */}
+                          <div />
 
                           {/* Remove button */}
                           <button
@@ -728,6 +851,8 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
                         </div>
                       );
                     })}
+                  </>
+                )}
                   </>
                 )}
               </div>
