@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import Script from "next/script";
 import { useAnalysis } from "@/hooks/useAnalysis";
 import { useAuth } from "@/hooks/useAuth";
 import { generateReport, deductTokens, deductDebateTokens, addToWatchlist, getWatchlist, removeFromWatchlist, searchAnalyzedTickers, reorderWatchlist } from "@/lib/api";
@@ -347,13 +346,8 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
             className={`relative z-10 min-h-screen flex flex-col ${transitioning === "out" ? "animate-fadeOutUp" : ""}`}
             style={{ fontFamily: "var(--font-sans), system-ui, sans-serif", paddingTop: 80 }}
           >
-            {/* Hero visual (left 40%) — fades out with hero */}
-            {/* TODO: Spline 3D original (kept for reference):
-            <div className={`hidden lg:block absolute left-0 top-0 w-[40%] h-full z-0 pointer-events-auto ${transitioning === "out" ? "animate-fadeOut" : ""}`}>
-              <Script type="module" src="https://cdn.spline.design/@splinetool/hana-viewer@1.2.44/hana-viewer.js" strategy="lazyOnload" />
-              <div className="w-full h-full" dangerouslySetInnerHTML={{ __html: '<hana-viewer url="https://prod.spline.design/8Y4PK1aVoV6bpVpU-ZkQ/scene.hanacode" style="width:100%;height:100%;display:block"></hana-viewer>' }} />
-            </div> */}
-            <div className={`hidden lg:flex absolute left-0 top-0 w-[45%] h-full z-0 items-center justify-center ${transitioning === "out" ? "animate-fadeOut" : ""}`}>
+            {/* Hero visual (left 45%) — GIF with crop, fades out with hero */}
+            <div className={`hidden lg:flex absolute left-0 top-0 w-[45%] h-full z-0 items-center justify-center animate-slideInLeft ${transitioning === "out" ? "animate-fadeOut" : ""}`}>
               <img
                 src="/hero-arrows.gif"
                 alt=""
@@ -372,7 +366,7 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
                 className="animate-fadeInUp delay-0 font-[700] text-white text-[32px] md:text-[46px] lg:text-[58px]"
                 style={{ lineHeight: 1.1 }}
               >
-                Financial Intelligence,
+                Thousands of financial data points
               </h1>
 
               {/* Subhead */}
@@ -387,7 +381,7 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
                   backgroundClip: "text",
                 }}
               >
-                Debated by AI.
+                One clear decision.
               </h2>
 
               {/* Description */}
