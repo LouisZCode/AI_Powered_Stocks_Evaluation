@@ -1110,7 +1110,7 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
       )}
 
       <RateLimitModal isOpen={rateLimited} onClose={reset} />
-      <FeatureGateModal isOpen={!!gateMessage} onClose={() => setGateMessage(null)} message={gateMessage ?? ""} />
+      <FeatureGateModal isOpen={!!gateMessage} onClose={() => setGateMessage(null)} message={gateMessage ?? ""} user={user} />
     </>
   );
 }
