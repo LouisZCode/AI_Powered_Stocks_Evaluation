@@ -17,8 +17,8 @@ export const TIERS: Tier[] = [
     id: "free",
     name: "Free",
     price: "$0",
-    tokens: "100 tokens",
-    tokensNum: 100,
+    tokens: "70 tokens",
+    tokensNum: 70,
     watchlistLimit: 3,
     features: [
       "3 watchlist slots",
@@ -114,9 +114,9 @@ export interface RunExample {
 }
 
 export const RUN_EXAMPLES: RunExample[] = [
-  { label: "Light", tokens: 15, description: "3 fast models, analysis only" },
-  { label: "Standard", tokens: 97, description: "5 fast models, analysis + 3-round debate on 5 metrics" },
-  { label: "Heavy", tokens: 370, description: "4 deep + 2 fast models, analysis + 5-round debate on 8 metrics" },
+  { label: "Light", tokens: 18, description: "3 fast models, 2 metrics, 2-round debate" },
+  { label: "Standard", tokens: 102, description: "5 fast + 4 deep models, 2 metrics, 2-round debate" },
+  { label: "Heavy", tokens: 375, description: "5 fast + 4 deep models, 5 metrics, 5-round debate" },
 ];
 
 export interface FaqItem {

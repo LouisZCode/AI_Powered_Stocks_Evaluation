@@ -93,7 +93,7 @@ async def auth_callback(request: Request, db: AsyncSession = Depends(get_db)):
         if existing_user:
             user = existing_user
         else:
-            user = User(email=email, name=name, tier="free", token_balance=100)
+            user = User(email=email, name=name, tier="free", token_balance=70)
             db.add(user)
             await db.flush()
 
@@ -159,7 +159,7 @@ async def google_auth_callback(request: Request, db: AsyncSession = Depends(get_
         if existing_user:
             user = existing_user
         else:
-            user = User(email=email, name=name, tier="free", token_balance=100)
+            user = User(email=email, name=name, tier="free", token_balance=70)
             db.add(user)
             await db.flush()
 
