@@ -43,6 +43,8 @@ export default function TickerInput({ onSubmit, disabled, initialTicker = "", is
   const [extraRows, setExtraRows] = useState(0);
   const [loadingModels, setLoadingModels] = useState(true);
 
+  useEffect(() => { setTicker(initialTicker); }, [initialTicker]);
+
   useEffect(() => {
     getModels()
       .then((data) => setAvailableModels(data.available_models))

@@ -70,6 +70,66 @@ function SortableItem({ id, children }: { id: string; children: (props: { listen
   return <>{children({ listeners, ref: setNodeRef, style, attributes })}</>;
 }
 
+/* ── Coming Soon placeholder for locked tabs ── */
+function ComingSoonTab({ icon, title, desc, isLoggedIn }: { icon: string; title: string; desc: string; isLoggedIn: boolean }) {
+  const [notifyChoice, setNotifyChoice] = useState<"yes" | "no" | null>(null);
+
+  return (
+    <div className="flex flex-col items-center justify-center py-16 gap-4">
+      <svg width={48} height={48} fill="none" viewBox="0 0 24 24">
+        <path d={icon} stroke="#3dd8e0" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+      <p style={{ color: "rgba(255,255,255,0.9)", fontSize: 15, fontFamily: "var(--font-mono)" }}>
+        {title}
+      </p>
+      <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 13, maxWidth: 320, textAlign: "center", lineHeight: 1.6 }}>
+        {desc}
+      </p>
+
+      <div className="mt-2 flex flex-col items-center gap-3">
+        {!isLoggedIn ? (
+          <p className="text-sm font-mono text-white/30">
+            Please log in to see more information.
+          </p>
+        ) : notifyChoice === null ? (
+          <>
+            <p className="text-sm font-mono text-white/40 text-center">
+              Want to be notified when this feature launches?
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setNotifyChoice("yes")}
+                className="px-5 py-2 rounded-lg text-sm font-mono font-medium transition-colors cursor-pointer"
+                style={{ background: "rgba(61,216,224,0.12)", border: "1px solid rgba(61,216,224,0.25)", color: "#3dd8e0" }}
+              >
+                Yes, notify me
+              </button>
+              <button
+                onClick={() => setNotifyChoice("no")}
+                className="px-5 py-2 rounded-lg text-sm font-mono text-white/30 transition-colors cursor-pointer hover:text-white/50"
+                style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
+              >
+                No thanks
+              </button>
+            </div>
+          </>
+        ) : notifyChoice === "yes" ? (
+          <p className="text-sm font-mono text-[#3dd8e0]/70 flex items-center gap-2">
+            <svg width={16} height={16} fill="none" viewBox="0 0 24 24">
+              <path d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            We&apos;ll let you know when it&apos;s ready!
+          </p>
+        ) : (
+          <p className="text-sm font-mono text-white/25">
+            No worries — check back soon!
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 type Mode = "home" | "analyze";
 type Tab = "financial" | "potential" | "price" | "watchlist";
 
@@ -657,7 +717,9 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
                         setTab("watchlist");
                       } catch (e: unknown) {
                         const msg = e instanceof Error ? e.message : "";
-                        if (msg === "__ALREADY_IN_WATCHLIST__") {
+                        if (msg === "__WATCHLIST_LIMIT__") {
+                          setGateMessage("Watchlist limit reached (10/10). Upgrade to add more.");
+                        } else if (msg === "__ALREADY_IN_WATCHLIST__") {
                           setTab("watchlist");
                         }
                       }
@@ -672,31 +734,21 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
             )}
 
             {tab === "potential" && (
-              <div className="flex flex-col items-center justify-center py-16 gap-4">
-                <svg width={48} height={48} fill="none" viewBox="0 0 24 24" style={{ opacity: 0.3 }}>
-                  <path d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" stroke="rgba(255,255,255,0.4)" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 15, fontFamily: "var(--font-mono)" }}>
-                  Potential & Future Value
-                </p>
-                <p style={{ color: "rgba(255,255,255,0.25)", fontSize: 13, maxWidth: 320, textAlign: "center", lineHeight: 1.6 }}>
-                  Growth prospects, market position, and competitive moat analysis.
-                </p>
-              </div>
+              <ComingSoonTab
+                icon="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941"
+                title="Potential & Future Value"
+                desc="Growth prospects, market position, and competitive moat analysis."
+                isLoggedIn={isLoggedIn}
+              />
             )}
 
             {tab === "price" && (
-              <div className="flex flex-col items-center justify-center py-16 gap-4">
-                <svg width={48} height={48} fill="none" viewBox="0 0 24 24" style={{ opacity: 0.3 }}>
-                  <path d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke="rgba(255,255,255,0.4)" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 15, fontFamily: "var(--font-mono)" }}>
-                  Price Evaluation
-                </p>
-                <p style={{ color: "rgba(255,255,255,0.25)", fontSize: 13, maxWidth: 320, textAlign: "center", lineHeight: 1.6 }}>
-                  Valuation metrics, fair value analysis, and price targets.
-                </p>
-              </div>
+              <ComingSoonTab
+                icon="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                title="Price Evaluation"
+                desc="Valuation metrics, fair value analysis, and price targets."
+                isLoggedIn={isLoggedIn}
+              />
             )}
 
             {tab === "watchlist" && (
@@ -723,7 +775,7 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
                         </svg>
                         <input
                           type="text"
-                          placeholder="Search analyzed tickers..."
+                          placeholder="Search or add any ticker..."
                           value={tickerSearch}
                           onChange={(e) => { setTickerSearch(e.target.value.toUpperCase()); setSearchOpen(true); }}
                           onFocus={() => setSearchOpen(true)}
@@ -751,6 +803,38 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
                             overflowY: "auto",
                           }}
                         >
+                          {/* Free-text add option */}
+                          {tickerSearch.trim() &&
+                            !searchResults.includes(tickerSearch.trim()) &&
+                            !watchlistData.some((e) => e.ticker === tickerSearch.trim()) && (
+                              <button
+                                className="flex items-center justify-between w-full px-3 py-2 text-left hover:bg-white/[0.06] transition-colors cursor-pointer border-b border-white/[0.06]"
+                                onClick={async () => {
+                                  const t = tickerSearch.trim();
+                                  try {
+                                    await addToWatchlist(t);
+                                    setSearchOpen(false);
+                                    setTickerSearch("");
+                                    const fresh = await getWatchlist();
+                                    setWatchlistData(fresh);
+                                  } catch (e: unknown) {
+                                    const msg = e instanceof Error ? e.message : "";
+                                    if (msg === "__WATCHLIST_LIMIT__") {
+                                      setSearchOpen(false);
+                                      setGateMessage("Watchlist limit reached (10/10). Upgrade to add more.");
+                                    } else if (msg === "__ALREADY_IN_WATCHLIST__") {
+                                      setSearchOpen(false);
+                                      setTickerSearch("");
+                                    }
+                                  }
+                                }}
+                              >
+                                <span className="font-mono text-sm text-white">
+                                  Add <span className="text-[#3dd8e0] font-semibold">{tickerSearch.trim()}</span> to watchlist
+                                </span>
+                                <span className="text-xs text-[#3dd8e0]/70 font-mono">+ Add</span>
+                              </button>
+                            )}
                           {searchResults.length > 0 ? (
                             searchResults.map((ticker) => (
                               <button
@@ -765,7 +849,11 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
                                     const fresh = await getWatchlist();
                                     setWatchlistData(fresh);
                                   } catch (e: unknown) {
-                                    if (e instanceof Error && e.message === "__ALREADY_IN_WATCHLIST__") {
+                                    const msg = e instanceof Error ? e.message : "";
+                                    if (msg === "__WATCHLIST_LIMIT__") {
+                                      setSearchOpen(false);
+                                      setGateMessage("Watchlist limit reached (10/10). Upgrade to add more.");
+                                    } else if (msg === "__ALREADY_IN_WATCHLIST__") {
                                       setSearchResults((prev) => prev.filter((t) => t !== ticker));
                                     }
                                   }
@@ -775,16 +863,11 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
                                 <span className="text-xs text-[#3dd8e0]/70 font-mono">+ Add</span>
                               </button>
                             ))
-                          ) : !searchLoading ? (
+                          ) : !searchLoading && !tickerSearch.trim() ? (
                             <div className="px-3 py-3 text-center">
-                              <p className="text-xs text-white/30 font-mono">No matches found</p>
+                              <p className="text-xs text-white/30 font-mono">Type a ticker to search or add</p>
                             </div>
                           ) : null}
-                          <div className="px-3 py-2 border-t border-white/[0.06]">
-                            <p className="text-[11px] text-white/20 text-center">
-                              Don&apos;t see your ticker? Run an analysis first.
-                            </p>
-                          </div>
                         </div>
                       )}
                     </div>
@@ -887,24 +970,39 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
                             {avgScore !== null ? (
                               <ScoreGauge score={avgScore} size={48} />
                             ) : (
-                              <>
+                              <div
+                                className="flex flex-col items-center cursor-pointer"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  reset();
+                                  setPendingTicker(entry.ticker);
+                                  setTab("financial");
+                                  window.scrollTo({ top: 0, behavior: "smooth" });
+                                }}
+                              >
                                 <ScoreGauge empty size={48} />
-                                <span className="text-[8px] text-white/20 font-mono -mt-0.5">needs analysis</span>
-                              </>
+                                <span className="text-[8px] text-[#3dd8e0]/40 font-mono -mt-0.5">run analysis</span>
+                              </div>
                             )}
                           </button>
 
-                          {/* Potential — placeholder */}
-                          <div className="flex flex-col items-center justify-center">
+                          {/* Potential — clickable to tab */}
+                          <button
+                            className="flex flex-col items-center justify-center cursor-pointer rounded-lg transition-colors hover:bg-white/[0.06]"
+                            onClick={() => { setTab("potential"); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                          >
                             <ScoreGauge empty size={48} />
-                            <span className="text-[8px] text-white/20 font-mono -mt-0.5">needs analysis</span>
-                          </div>
+                            <span className="text-[8px] text-[#3dd8e0]/40 font-mono -mt-0.5">coming soon</span>
+                          </button>
 
-                          {/* Price — placeholder */}
-                          <div className="flex flex-col items-center justify-center">
+                          {/* Price — clickable to tab */}
+                          <button
+                            className="flex flex-col items-center justify-center cursor-pointer rounded-lg transition-colors hover:bg-white/[0.06]"
+                            onClick={() => { setTab("price"); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                          >
                             <ScoreGauge empty size={48} />
-                            <span className="text-[8px] text-white/20 font-mono -mt-0.5">needs analysis</span>
-                          </div>
+                            <span className="text-[8px] text-[#3dd8e0]/40 font-mono -mt-0.5">coming soon</span>
+                          </button>
 
                           {/* Spacer */}
                           <div />

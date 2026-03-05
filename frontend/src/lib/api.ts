@@ -177,6 +177,7 @@ export async function addToWatchlist(ticker: string): Promise<{ ticker: string; 
   });
   if (!res.ok) {
     if (res.status === 409) throw new Error("__ALREADY_IN_WATCHLIST__");
+    if (res.status === 403) throw new Error("__WATCHLIST_LIMIT__");
     throw new Error("Failed to add to watchlist");
   }
   return res.json();

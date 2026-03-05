@@ -9,6 +9,8 @@ from dependencies.oauth import get_current_user
 
 router = APIRouter(prefix="/watchlist")
 
+WATCHLIST_LIMITS = {"free": 10, "premium": 50}
+
 
 class WatchlistRequest(BaseModel):
     ticker: str
@@ -37,6 +39,16 @@ async def add_to_watchlist(
     )
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=409, detail=f"{ticker} is already in your watchlist")
+
+    # Check watchlist limit
+    count_result = await db.execute(
+        select(func.count()).select_from(Watchlist).where(Watchlist.user_id == user.id)
+    )
+    count = count_result.scalar()
+    tier = getattr(user, "tier", "free") or "free"
+    limit = WATCHLIST_LIMITS.get(tier, 10)
+    if count >= limit:
+        raise HTTPException(status_code=403, detail=f"Watchlist limit reached ({count}/{limit}). Upgrade to add more.")
 
     # New entries go to the bottom (max sort_order + 1)
     max_order = await db.execute(
