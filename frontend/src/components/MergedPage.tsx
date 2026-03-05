@@ -346,21 +346,32 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
             className={`relative z-10 min-h-screen flex flex-col ${transitioning === "out" ? "animate-fadeOutUp" : ""}`}
             style={{ fontFamily: "var(--font-sans), system-ui, sans-serif", paddingTop: 80 }}
           >
-            {/* Hero visual (left 45%) — GIF with crop, fades out with hero */}
-            <div className={`hidden lg:flex absolute left-0 top-0 w-[45%] h-full z-0 items-center justify-center animate-slideInLeft ${transitioning === "out" ? "animate-fadeOut" : ""}`}>
-              <img
-                src="/hero-arrows.gif"
-                alt=""
-                className="w-[90%] max-w-[520px] object-contain select-none pointer-events-none"
-                style={{ filter: "drop-shadow(0 0 40px rgba(61, 216, 224, 0.15))", clipPath: "inset(6% 12%)", opacity: 0.9 }}
-              />
-            </div>
+            {/* Hero row — max-width keeps GIF and copy together on wide screens */}
+            <div className="flex flex-1 w-full max-w-[1400px] mx-auto items-center">
+              {/* Hero visual (left) — GIF with crop */}
+              <div className={`hidden lg:flex w-[40%] items-center justify-end pr-4 animate-slideInLeft ${transitioning === "out" ? "animate-fadeOut" : ""}`}>
+                <img
+                  src="/hero-arrows.gif"
+                  alt=""
+                  className="w-[90%] max-w-[520px] object-contain select-none pointer-events-none"
+                  style={{ filter: "drop-shadow(0 0 40px rgba(61, 216, 224, 0.15))", clipPath: "inset(6% 12%)", opacity: 0.9 }}
+                />
+              </div>
 
-            {/* Hero */}
-            <section
-              className="ml-auto flex flex-1 w-full lg:w-[60%] flex-col items-center lg:items-start justify-center text-center lg:text-left px-5 md:px-8 lg:px-12 lg:pr-16 pb-10 md:pb-15"
-              style={{ maxWidth: 820 }}
-            >
+              {/* Hero copy (right) */}
+              <section
+                className="flex flex-1 lg:w-[60%] flex-col items-center lg:items-start justify-center text-center lg:text-left px-5 md:px-8 lg:px-12 lg:pr-16 pb-10 md:pb-15"
+              >
+              {/* Mobile GIF — only visible below lg */}
+              <div className="lg:hidden flex justify-center mb-6 animate-slideInLeft">
+                <img
+                  src="/hero-arrows.gif"
+                  alt=""
+                  className="w-[180px] md:w-[220px] object-contain select-none pointer-events-none"
+                  style={{ filter: "drop-shadow(0 0 30px rgba(61, 216, 224, 0.15))", clipPath: "inset(6% 12%)", opacity: 0.9 }}
+                />
+              </div>
+
               {/* Headline */}
               <h1
                 className="animate-fadeInUp delay-0 font-[700] text-white text-[32px] md:text-[46px] lg:text-[58px]"
@@ -506,6 +517,7 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
                 </div>
               </form>
             </section>
+            </div>{/* end hero row */}
           </div>
 
           {/* How It Works + Trust Bar */}
