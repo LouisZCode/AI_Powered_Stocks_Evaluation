@@ -4,5 +4,6 @@ from .financial_debate import router as financial_debate_router
 from .financial_report import router as financial_report_router
 from .financial_ingestion import router as financial_ingestion_router
 from .auth import router as auth_router
+from .watchlist import router as watchlist_router
 
-all_routes = [financial_ingestion_router, financial_analisys_router, financial_harmonization_router, financial_debate_router, financial_report_router, auth_router]
+all_routes = [financial_ingestion_router, financial_analisys_router, financial_harmonization_router, financial_debate_router, financial_report_router, auth_router, watchlist_router]

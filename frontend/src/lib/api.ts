@@ -166,6 +166,47 @@ export async function debateMetrics(
   }
 }
 
+// ── Watchlist ──
+
+export async function addToWatchlist(ticker: string): Promise<{ ticker: string; message: string }> {
+  const res = await fetch(`${API}/watchlist/add`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ticker }),
+    credentials: "include",
+  });
+  if (!res.ok) {
+    if (res.status === 409) throw new Error("__ALREADY_IN_WATCHLIST__");
+    throw new Error("Failed to add to watchlist");
+  }
+  return res.json();
+}
+
+export async function removeFromWatchlist(ticker: string): Promise<{ ticker: string; message: string }> {
+  const res = await fetch(`${API}/watchlist/remove`, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ticker }),
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error("Failed to remove from watchlist");
+  return res.json();
+}
+
+export interface WatchlistEntry {
+  ticker: string;
+  added_at: string;
+  analyses: { llm_model: string; analysis: Record<string, unknown>; latest_filing_date: string | null }[] | null;
+}
+
+export async function getWatchlist(): Promise<WatchlistEntry[]> {
+  const res = await fetch(`${API}/watchlist/`, { credentials: "include" });
+  if (!res.ok) throw new Error("Failed to fetch watchlist");
+  return res.json();
+}
+
+// ── Report ──
+
 export async function generateReport(
   ticker: string,
   models: string[],

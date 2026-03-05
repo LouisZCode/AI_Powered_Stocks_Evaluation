@@ -25,6 +25,7 @@ class User(Base):
 
     activities = relationship("Activity", back_populates="user")
     oauth_accounts = relationship("OauthProvider", back_populates="user", cascade="all, delete-orphan")
+    watchlist_items = relationship("Watchlist", back_populates="user", cascade="all, delete-orphan")
 
 
 class Activity(Base):
@@ -54,6 +55,18 @@ class OauthProvider(Base):
 
     __table_args__ = (UniqueConstraint("provider", "provider_user_id", name="uq_provider_account"),)
 
+
+
+class Watchlist(Base):
+    __tablename__ = "watchlist"
+    __table_args__ = (UniqueConstraint("user_id", "ticker", name="uq_user_ticker"),)
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=False)
+    ticker = Column(String(10), nullable=False)
+    added_at = Column(DateTime, default=func.now())
+
+    user = relationship("User", back_populates="watchlist_items")
 
 
 class DocumentChunk(Base):

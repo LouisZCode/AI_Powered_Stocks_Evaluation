@@ -4,7 +4,9 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import Script from "next/script";
 import { useAnalysis } from "@/hooks/useAnalysis";
 import { useAuth } from "@/hooks/useAuth";
-import { generateReport, deductTokens, deductDebateTokens } from "@/lib/api";
+import { generateReport, deductTokens, deductDebateTokens, addToWatchlist, getWatchlist, removeFromWatchlist } from "@/lib/api";
+import type { WatchlistEntry } from "@/lib/api";
+import ScoreGauge from "@/components/ScoreGauge";
 import ParticleCanvas from "@/components/ParticleCanvas";
 import Nav from "@/components/Nav";
 import GlassContainer from "@/components/GlassContainer";
@@ -72,6 +74,14 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
   const isLoading = phase === "ingesting" || phase === "analyzing";
   const [generatingReport, setGeneratingReport] = useState(false);
   const [gateMessage, setGateMessage] = useState<string | null>(null);
+  const [watchlistData, setWatchlistData] = useState<WatchlistEntry[]>([]);
+
+  // Fetch watchlist when tab switches to watchlist
+  useEffect(() => {
+    if (tab === "watchlist" && isLoggedIn) {
+      getWatchlist().then(setWatchlistData).catch(() => {});
+    }
+  }, [tab, isLoggedIn]);
 
   // Deduct tokens after analysis completes, then refresh balance
   useEffect(() => {
@@ -574,7 +584,17 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
                       chunks: ingestionData.chunks,
                     } : null}
                     onNewAnalysis={handleNewAnalysis}
-                    onAddToWatchlist={() => {/* TODO: watchlist */}}
+                    onAddToWatchlist={async () => {
+                      try {
+                        await addToWatchlist(pendingTicker);
+                        setTab("watchlist");
+                      } catch (e: unknown) {
+                        const msg = e instanceof Error ? e.message : "";
+                        if (msg === "__ALREADY_IN_WATCHLIST__") {
+                          setTab("watchlist");
+                        }
+                      }
+                    }}
                     isLoggedIn={isLoggedIn}
                     onFeatureGate={handleFeatureGate}
                     modelStatuses={modelStatuses}
@@ -613,16 +633,103 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
             )}
 
             {tab === "watchlist" && (
-              <div className="flex flex-col items-center justify-center py-16 gap-4">
-                <svg width={48} height={48} fill="none" viewBox="0 0 24 24" style={{ opacity: 0.3 }}>
-                  <path d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.562.562 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.562.562 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" stroke="rgba(255,255,255,0.4)" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 15, fontFamily: "var(--font-mono)" }}>
-                  Watchlist coming soon
-                </p>
-                <p style={{ color: "rgba(255,255,255,0.25)", fontSize: 13, maxWidth: 320, textAlign: "center", lineHeight: 1.6 }}>
-                  Track your favorite tickers and get notified when new filings drop.
-                </p>
+              <div className="flex flex-col gap-3">
+                {!isLoggedIn ? (
+                  <div className="flex flex-col items-center justify-center py-16 gap-3">
+                    <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 14, fontFamily: "var(--font-mono)" }}>
+                      Sign in to use your watchlist
+                    </p>
+                  </div>
+                ) : watchlistData.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-16 gap-3">
+                    <svg width={40} height={40} fill="none" viewBox="0 0 24 24" style={{ opacity: 0.25 }}>
+                      <path d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.562.562 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.562.562 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" stroke="rgba(255,255,255,0.35)" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    <p style={{ color: "rgba(255,255,255,0.35)", fontSize: 14, fontFamily: "var(--font-mono)" }}>
+                      Your watchlist is empty
+                    </p>
+                    <p style={{ color: "rgba(255,255,255,0.2)", fontSize: 12, maxWidth: 280, textAlign: "center", lineHeight: 1.6 }}>
+                      Run an analysis and click &quot;Add to Watchlist&quot; to start tracking tickers.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    {/* Column headers */}
+                    <div className="grid grid-cols-[1fr_80px_80px_80px_32px] items-center px-3 pb-1 border-b border-white/[0.06]">
+                      <span className="text-[10px] uppercase tracking-wider text-white/60 font-mono">Ticker</span>
+                      <span className="text-[10px] uppercase tracking-wider text-white/60 font-mono text-center">Financial</span>
+                      <span className="text-[10px] uppercase tracking-wider text-white/60 font-mono text-center">Potential</span>
+                      <span className="text-[10px] uppercase tracking-wider text-white/60 font-mono text-center">Price</span>
+                      <span />
+                    </div>
+
+                    {watchlistData.map((entry) => {
+                      // Extract average financial strength score across models
+                      let avgScore: number | null = null;
+                      if (entry.analyses && entry.analyses.length > 0) {
+                        const scores = entry.analyses
+                          .map((a) => {
+                            const s = (a.analysis as Record<string, string>)?.financial_strenght;
+                            const m = s?.match(/(\d+)/);
+                            return m ? parseInt(m[1]) : null;
+                          })
+                          .filter((n): n is number => n !== null);
+                        if (scores.length > 0) {
+                          avgScore = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+                        }
+                      }
+
+                      return (
+                        <div
+                          key={entry.ticker}
+                          className="grid grid-cols-[1fr_80px_80px_80px_32px] items-center px-3 py-3 rounded-lg bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.05] transition-colors"
+                        >
+                          {/* Ticker */}
+                          <div className="flex flex-col">
+                            <span className="font-mono text-sm font-semibold text-white">{entry.ticker}</span>
+                            <span className="text-[10px] text-white/20 font-mono">
+                              {entry.analyses ? `${entry.analyses.length} model${entry.analyses.length !== 1 ? "s" : ""}` : "not analyzed"}
+                            </span>
+                          </div>
+
+                          {/* Financial gauge */}
+                          <div className="flex justify-center">
+                            {avgScore !== null ? (
+                              <ScoreGauge score={avgScore} size={56} />
+                            ) : (
+                              <span className="text-[10px] text-white/15 font-mono">—</span>
+                            )}
+                          </div>
+
+                          {/* Potential — placeholder */}
+                          <div className="flex justify-center">
+                            <span className="text-[10px] text-white/15 font-mono">—</span>
+                          </div>
+
+                          {/* Price — placeholder */}
+                          <div className="flex justify-center">
+                            <span className="text-[10px] text-white/15 font-mono">—</span>
+                          </div>
+
+                          {/* Remove button */}
+                          <button
+                            onClick={async () => {
+                              try {
+                                await removeFromWatchlist(entry.ticker);
+                                setWatchlistData((prev) => prev.filter((e) => e.ticker !== entry.ticker));
+                              } catch {}
+                            }}
+                            className="flex items-center justify-center w-6 h-6 rounded-md text-white/15 hover:text-red-400 hover:bg-red-400/10 transition-colors cursor-pointer"
+                          >
+                            <svg width={14} height={14} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </>
+                )}
               </div>
             )}
           </GlassContainer>
