@@ -32,13 +32,15 @@ export default function Nav({ onLogoClick, user }: Props) {
           >
             Agora
           </button>
-          <a
-            href="/pricing"
-            className="text-white/40 hover:text-white/80 transition-colors duration-200"
-            style={{ fontSize: 14 }}
-          >
-            Pricing
-          </a>
+          {!user && (
+            <a
+              href="/pricing"
+              className="text-white/40 hover:text-white/80 transition-colors duration-200"
+              style={{ fontSize: 14 }}
+            >
+              Pricing
+            </a>
+          )}
         </div>
         <div className="flex items-center gap-5">
           {user ? (
@@ -48,7 +50,7 @@ export default function Nav({ onLogoClick, user }: Props) {
                 className="text-white/40 hover:text-white/80 transition-colors duration-200"
                 style={{ fontSize: 13, border: "1px solid rgba(255,255,255,0.08)", borderRadius: 9999, padding: "5px 14px" }}
               >
-                Membership
+                {user.tier === "free" ? "Pricing" : "Membership"}
               </a>
               <div className="flex flex-col items-end">
                 <span className="text-white/70 text-sm font-mono">

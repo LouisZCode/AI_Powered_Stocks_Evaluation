@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import Nav from "@/components/Nav";
+import AuthModal from "@/components/AuthModal";
 import { useAuth } from "@/hooks/useAuth";
 import { TIERS, TOKEN_COSTS, RUN_EXAMPLES, FAQ_ITEMS } from "@/lib/pricing";
 
@@ -17,8 +18,10 @@ function PricingParticles() {
     if (!ctx) return;
 
     let animId: number;
-    const COUNT = 250;
-    const CONNECTION_DIST = 70;
+    let idleId: number | undefined;
+    const isMobile = window.innerWidth < 768;
+    const COUNT = isMobile ? 100 : 250;
+    const CONNECTION_DIST = isMobile ? 60 : 70;
 
     const resize = () => {
       canvas.width = window.innerWidth;
@@ -32,81 +35,92 @@ function PricingParticles() {
     };
     window.addEventListener("mousemove", handleMouse);
 
-    const particles = Array.from({ length: COUNT }, () => ({
-      x: Math.random() * canvas.width,
-      y: Math.random() * canvas.height,
-      vx: (Math.random() - 0.3) * 0.5,
-      vy: (Math.random() - 0.5) * 0.3,
-      size: Math.random() * 2 + 0.5,
-      phase: Math.random() * Math.PI * 2,
-    }));
+    const boot = () => {
+      const particles = Array.from({ length: COUNT }, () => ({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        vx: (Math.random() - 0.3) * 0.5,
+        vy: (Math.random() - 0.5) * 0.3,
+        size: Math.random() * 2 + 0.5,
+        phase: Math.random() * Math.PI * 2,
+      }));
 
-    const draw = () => {
-      ctx.fillStyle = "rgba(5, 10, 18, 0.12)";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      const mouse = mouseRef.current;
+      const draw = () => {
+        ctx.fillStyle = "rgba(5, 10, 18, 0.12)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        const mouse = mouseRef.current;
 
-      for (let i = 0; i < COUNT; i++) {
-        const p = particles[i];
-        p.phase += 0.01;
-        p.x += p.vx;
-        p.y += p.vy + Math.sin(p.phase) * 0.3;
+        for (let i = 0; i < COUNT; i++) {
+          const p = particles[i];
+          p.phase += 0.01;
+          p.x += p.vx;
+          p.y += p.vy + Math.sin(p.phase) * 0.3;
 
-        // Mouse repulsion
-        const dx = p.x - mouse.x;
-        const dy = p.y - mouse.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < 80 && dist > 0) {
-          p.x += (dx / dist) * 2;
-          p.y += (dy / dist) * 2;
-        }
+          // Mouse repulsion
+          const dx = p.x - mouse.x;
+          const dy = p.y - mouse.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 80 && dist > 0) {
+            p.x += (dx / dist) * 2;
+            p.y += (dy / dist) * 2;
+          }
 
-        // Wrap around
-        if (p.x > canvas.width + 10) p.x = -10;
-        if (p.x < -10) p.x = canvas.width + 10;
-        if (p.y > canvas.height + 10) p.y = -10;
-        if (p.y < -10) p.y = canvas.height + 10;
+          // Wrap around
+          if (p.x > canvas.width + 10) p.x = -10;
+          if (p.x < -10) p.x = canvas.width + 10;
+          if (p.y > canvas.height + 10) p.y = -10;
+          if (p.y < -10) p.y = canvas.height + 10;
 
-        // Trail
-        const gradient = ctx.createLinearGradient(p.x - p.vx * 8, p.y, p.x, p.y);
-        const color = `rgba(125, 211, 252, ${0.6 * (p.size / 2.5)})`;
-        gradient.addColorStop(0, "transparent");
-        gradient.addColorStop(1, color);
-        ctx.beginPath();
-        ctx.moveTo(p.x - p.vx * 8, p.y);
-        ctx.lineTo(p.x, p.y);
-        ctx.strokeStyle = gradient;
-        ctx.lineWidth = p.size;
-        ctx.stroke();
+          // Trail
+          const gradient = ctx.createLinearGradient(p.x - p.vx * 8, p.y, p.x, p.y);
+          const color = `rgba(125, 211, 252, ${0.6 * (p.size / 2.5)})`;
+          gradient.addColorStop(0, "transparent");
+          gradient.addColorStop(1, color);
+          ctx.beginPath();
+          ctx.moveTo(p.x - p.vx * 8, p.y);
+          ctx.lineTo(p.x, p.y);
+          ctx.strokeStyle = gradient;
+          ctx.lineWidth = p.size;
+          ctx.stroke();
 
-        // Particle dot
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        ctx.fillStyle = color;
-        ctx.fill();
+          // Particle dot
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+          ctx.fillStyle = color;
+          ctx.fill();
 
-        // Connections
-        for (let j = i + 1; j < COUNT; j++) {
-          const q = particles[j];
-          const cdx = p.x - q.x;
-          const cdy = p.y - q.y;
-          const cdist = Math.sqrt(cdx * cdx + cdy * cdy);
-          if (cdist < CONNECTION_DIST) {
-            const alpha = (1 - cdist / CONNECTION_DIST) * 0.15;
-            ctx.beginPath();
-            ctx.moveTo(p.x, p.y);
-            ctx.lineTo(q.x, q.y);
-            ctx.strokeStyle = `rgba(125, 211, 252, ${alpha})`;
-            ctx.lineWidth = 0.5;
-            ctx.stroke();
+          // Connections
+          for (let j = i + 1; j < COUNT; j++) {
+            const q = particles[j];
+            const cdx = p.x - q.x;
+            const cdy = p.y - q.y;
+            const cdist = Math.sqrt(cdx * cdx + cdy * cdy);
+            if (cdist < CONNECTION_DIST) {
+              const alpha = (1 - cdist / CONNECTION_DIST) * 0.15;
+              ctx.beginPath();
+              ctx.moveTo(p.x, p.y);
+              ctx.lineTo(q.x, q.y);
+              ctx.strokeStyle = `rgba(125, 211, 252, ${alpha})`;
+              ctx.lineWidth = 0.5;
+              ctx.stroke();
+            }
           }
         }
-      }
+        animId = requestAnimationFrame(draw);
+      };
+
       animId = requestAnimationFrame(draw);
     };
 
-    animId = requestAnimationFrame(draw);
+    // Defer particle init so the page paints first
+    if ("requestIdleCallback" in window) {
+      idleId = window.requestIdleCallback(boot, { timeout: 200 });
+    } else {
+      setTimeout(boot, 50);
+    }
+
     return () => {
+      if (idleId !== undefined) window.cancelIdleCallback(idleId);
       cancelAnimationFrame(animId);
       window.removeEventListener("resize", resize);
       window.removeEventListener("mousemove", handleMouse);
@@ -156,6 +170,7 @@ function FaqAccordion({ question, answer }: { question: string; answer: string }
 /* ─── Main Pricing Page ─── */
 export default function PricingPage() {
   const { user } = useAuth();
+  const [authModal, setAuthModal] = useState(false);
 
   const scrollToTiers = useCallback(() => {
     document.getElementById("tiers")?.scrollIntoView({ behavior: "smooth" });
@@ -255,13 +270,13 @@ export default function PricingPage() {
                     Current Plan
                   </button>
                 ) : tier.id === "free" && !user ? (
-                  <a
-                    href="/"
-                    className="block w-full text-center rounded-xl font-[500] transition-opacity hover:opacity-85"
-                    style={{ padding: "11px 0", fontSize: 14, color: "#0a0e14", background: "#3dd8e0" }}
+                  <button
+                    onClick={() => setAuthModal(true)}
+                    className="w-full rounded-xl font-[500] transition-opacity hover:opacity-85 cursor-pointer"
+                    style={{ padding: "11px 0", fontSize: 14, color: "#0a0e14", background: "#3dd8e0", border: "none" }}
                   >
                     Get Started
-                  </a>
+                  </button>
                 ) : (
                   <button
                     disabled
@@ -444,21 +459,28 @@ export default function PricingPage() {
               Start analyzing
             </a>
           ) : (
-            <a
-              href="/"
-              className="inline-block rounded-full font-[500] transition-opacity hover:opacity-85"
+            <button
+              onClick={() => setAuthModal(true)}
+              className="rounded-full font-[500] transition-opacity hover:opacity-85 cursor-pointer"
               style={{
                 padding: "14px 36px",
                 fontSize: 15,
                 color: "#0a0e14",
                 background: "#3dd8e0",
+                border: "none",
               }}
             >
               Sign up free
-            </a>
+            </button>
           )}
         </section>
       </div>
+
+      <AuthModal
+        isOpen={authModal}
+        onClose={() => setAuthModal(false)}
+        mode="signup"
+      />
     </div>
   );
 }

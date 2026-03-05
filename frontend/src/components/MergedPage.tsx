@@ -144,7 +144,7 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
   const [transitioning, setTransitioning] = useState<"out" | "in" | null>(null);
   const [pendingTicker, setPendingTicker] = useState(initialTicker);
   const { phase, ingestionData, analysisData, harmonizationData, harmonizing, debateData, debating, debateError, currentDebateMetric, error, rateLimited, modelStatuses, run, harmonize, debate, reset, cancel, cancelModel, progressBarRef } = useAnalysis();
-  const { user, isLoggedIn, refreshUser } = useAuth();
+  const { user, isLoggedIn, loading: authLoading, refreshUser } = useAuth();
   const isLoading = phase === "ingesting" || phase === "analyzing";
   const [generatingReport, setGeneratingReport] = useState(false);
   const [gateMessage, setGateMessage] = useState<string | null>(null);
@@ -155,6 +155,13 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
+
+  // Auto-redirect logged-in users to analyze mode
+  useEffect(() => {
+    if (!authLoading && isLoggedIn && mode === "home") {
+      setMode("analyze");
+    }
+  }, [authLoading, isLoggedIn]);
 
   // DnD sensors — require 5px movement before activating to allow clicks
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
