@@ -199,6 +199,16 @@ export interface WatchlistEntry {
   analyses: { llm_model: string; analysis: Record<string, unknown>; latest_filing_date: string | null }[] | null;
 }
 
+export async function reorderWatchlist(tickers: string[]): Promise<void> {
+  const res = await fetch(`${API}/watchlist/reorder`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ tickers }),
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error("Failed to reorder watchlist");
+}
+
 export async function getWatchlist(): Promise<WatchlistEntry[]> {
   const res = await fetch(`${API}/watchlist/`, { credentials: "include" });
   if (!res.ok) throw new Error("Failed to fetch watchlist");

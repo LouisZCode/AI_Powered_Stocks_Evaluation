@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete, func
+from sqlalchemy import select, delete, func, update
 
 from database.connection import get_db
 from database.orm import Watchlist, LLMFinancialAnalysis
@@ -12,6 +12,10 @@ router = APIRouter(prefix="/watchlist")
 
 class WatchlistRequest(BaseModel):
     ticker: str
+
+
+class ReorderRequest(BaseModel):
+    tickers: list[str]
 
 
 @router.post("/add")
@@ -34,7 +38,14 @@ async def add_to_watchlist(
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=409, detail=f"{ticker} is already in your watchlist")
 
-    entry = Watchlist(user_id=user.id, ticker=ticker)
+    # New entries go to the bottom (max sort_order + 1)
+    max_order = await db.execute(
+        select(func.coalesce(func.max(Watchlist.sort_order), -1))
+        .where(Watchlist.user_id == user.id)
+    )
+    next_order = max_order.scalar() + 1
+
+    entry = Watchlist(user_id=user.id, ticker=ticker, sort_order=next_order)
     db.add(entry)
     await db.commit()
 
@@ -66,6 +77,25 @@ async def remove_from_watchlist(
     return {"ticker": ticker, "message": f"{ticker} removed from watchlist"}
 
 
+@router.put("/reorder")
+async def reorder_watchlist(
+    request: ReorderRequest,
+    user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    for idx, ticker in enumerate(request.tickers):
+        await db.execute(
+            update(Watchlist)
+            .where(Watchlist.user_id == user.id, Watchlist.ticker == ticker)
+            .values(sort_order=idx)
+        )
+    await db.commit()
+    return {"message": "Watchlist reordered"}
+
+
 @router.get("/search")
 async def search_analyzed_tickers(
     q: str = "",
@@ -95,7 +125,7 @@ async def get_watchlist(
     result = await db.execute(
         select(Watchlist)
         .where(Watchlist.user_id == user.id)
-        .order_by(Watchlist.added_at.desc())
+        .order_by(Watchlist.sort_order.asc())
     )
     entries = result.scalars().all()
 

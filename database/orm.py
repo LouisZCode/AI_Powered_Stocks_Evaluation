@@ -64,6 +64,7 @@ class Watchlist(Base):
     id = Column(Integer, primary_key=True)
     user_id = Column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=False)
     ticker = Column(String(10), nullable=False)
+    sort_order = Column(Integer, nullable=False, server_default="0")
     added_at = Column(DateTime, default=func.now())
 
     user = relationship("User", back_populates="watchlist_items")

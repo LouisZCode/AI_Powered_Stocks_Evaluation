@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import Script from "next/script";
 import { useAnalysis } from "@/hooks/useAnalysis";
 import { useAuth } from "@/hooks/useAuth";
-import { generateReport, deductTokens, deductDebateTokens, addToWatchlist, getWatchlist, removeFromWatchlist, searchAnalyzedTickers } from "@/lib/api";
+import { generateReport, deductTokens, deductDebateTokens, addToWatchlist, getWatchlist, removeFromWatchlist, searchAnalyzedTickers, reorderWatchlist } from "@/lib/api";
 import type { WatchlistEntry } from "@/lib/api";
 import ScoreGauge from "@/components/ScoreGauge";
 import ParticleCanvas from "@/components/ParticleCanvas";
@@ -16,6 +16,10 @@ import PhaseStatus from "@/components/PhaseStatus";
 import AnalysisResults from "@/components/AnalysisResults";
 import RateLimitModal from "@/components/RateLimitModal";
 import FeatureGateModal from "@/components/FeatureGateModal";
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
+import type { DragEndEvent } from "@dnd-kit/core";
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 /* ── Quick-try ticker chips ── */
 const QUICK_TICKERS = ["AAPL", "MSFT", "NVDA", "TSLA", "GOOG"];
@@ -56,6 +60,16 @@ const TRUST_ITEMS = [
   "No Login Required",
 ];
 
+/* ── Sortable wrapper for watchlist rows ── */
+function SortableItem({ id, children }: { id: string; children: (props: { listeners: ReturnType<typeof useSortable>["listeners"]; ref: (node: HTMLElement | null) => void; style: React.CSSProperties; attributes: ReturnType<typeof useSortable>["attributes"] }) => React.ReactNode }) {
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+  return <>{children({ listeners, ref: setNodeRef, style, attributes })}</>;
+}
+
 type Mode = "home" | "analyze";
 type Tab = "financial" | "potential" | "price" | "watchlist";
 
@@ -75,11 +89,32 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
   const [generatingReport, setGeneratingReport] = useState(false);
   const [gateMessage, setGateMessage] = useState<string | null>(null);
   const [watchlistData, setWatchlistData] = useState<WatchlistEntry[]>([]);
+  const [expandedTicker, setExpandedTicker] = useState<string | null>(null);
   const [tickerSearch, setTickerSearch] = useState("");
   const [searchResults, setSearchResults] = useState<string[]>([]);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
+
+  // DnD sensors — require 5px movement before activating to allow clicks
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    setWatchlistData((prev) => {
+      const oldIndex = prev.findIndex((e) => e.ticker === active.id);
+      const newIndex = prev.findIndex((e) => e.ticker === over.id);
+      if (oldIndex === -1 || newIndex === -1) return prev;
+      const reordered = arrayMove(prev, oldIndex, newIndex);
+      // Fire-and-forget: persist order on server
+      reorderWatchlist(reordered.map((e) => e.ticker)).catch(() => {
+        // On failure, refetch from server
+        getWatchlist().then(setWatchlistData).catch(() => {});
+      });
+      return reordered;
+    });
+  }, []);
 
   // Fetch watchlist when tab switches to watchlist
   useEffect(() => {
@@ -754,6 +789,7 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
                       )}
                     </div>
 
+                    <div className="mt-3" />
                     {/* Watchlist content */}
                     {watchlistData.length === 0 ? (
                       <div className="flex flex-col items-center justify-center py-12 gap-3">
@@ -770,7 +806,8 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
                     ) : (
                   <>
                     {/* Column headers */}
-                    <div className="grid grid-cols-[auto_40px_72px_72px_72px_1fr_32px] gap-x-4 items-center px-3 pb-1 border-b border-white/[0.06]">
+                    <div className="grid grid-cols-[24px_auto_40px_72px_72px_72px_1fr_32px] gap-x-4 items-center px-3 pb-1 border-b border-white/[0.06]">
+                      <span />
                       <span className="text-[10px] uppercase tracking-wider text-white/60 font-mono">Ticker</span>
                       <span />
                       <span className="text-[10px] uppercase tracking-wider text-white/60 font-mono text-center">Financial</span>
@@ -780,6 +817,8 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
                       <span />
                     </div>
 
+                    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={() => setExpandedTicker(null)} onDragEnd={handleDragEnd}>
+                    <SortableContext items={watchlistData.map((e) => e.ticker)} strategy={verticalListSortingStrategy}>
                     {watchlistData.map((entry) => {
                       // Extract average financial strength score across models
                       let avgScore: number | null = null;
@@ -797,18 +836,54 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
                       }
 
                       return (
+                        <SortableItem key={entry.ticker} id={entry.ticker}>
+                        {({ listeners, ref, style, attributes }) => (
+                        <div ref={ref} style={style} {...attributes} data-watchlist-row className="flex flex-col gap-1.5">
                         <div
-                          key={entry.ticker}
-                          className="grid grid-cols-[auto_40px_72px_72px_72px_1fr_32px] gap-x-4 items-center px-3 py-3 rounded-lg bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.05] transition-colors"
+                          className="grid grid-cols-[24px_auto_40px_72px_72px_72px_1fr_32px] gap-x-4 items-center px-3 py-3 rounded-lg bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.05] transition-colors"
                         >
+                          {/* Drag handle */}
+                          <button
+                            {...listeners}
+                            className="flex items-center justify-center w-5 h-8 cursor-grab active:cursor-grabbing text-white/20 hover:text-white/50 transition-colors touch-none"
+                            tabIndex={-1}
+                          >
+                            <svg width={12} height={12} viewBox="0 0 16 16" fill="currentColor">
+                              <circle cx={5} cy={3} r={1.5} /><circle cx={11} cy={3} r={1.5} />
+                              <circle cx={5} cy={8} r={1.5} /><circle cx={11} cy={8} r={1.5} />
+                              <circle cx={5} cy={13} r={1.5} /><circle cx={11} cy={13} r={1.5} />
+                            </svg>
+                          </button>
+
                           {/* Ticker */}
                           <span className="font-mono text-sm font-semibold text-white">{entry.ticker}</span>
 
                           {/* Spacer between ticker and scores */}
                           <div />
 
-                          {/* Financial gauge */}
-                          <div className="flex flex-col items-center justify-center">
+                          {/* Financial gauge — clickable */}
+                          <button
+                            className="flex flex-col items-center justify-center cursor-pointer rounded-lg transition-colors hover:bg-white/[0.06]"
+                            onClick={(e) => {
+                              const isCollapsing = expandedTicker === entry.ticker;
+                              if (isCollapsing) {
+                                const row = (e.currentTarget as HTMLElement).closest("[data-watchlist-row]") as HTMLElement | null;
+                                if (row) {
+                                  const rectBefore = row.getBoundingClientRect();
+                                  setExpandedTicker(null);
+                                  requestAnimationFrame(() => {
+                                    const rectAfter = row.getBoundingClientRect();
+                                    window.scrollBy(0, rectAfter.top - rectBefore.top);
+                                  });
+                                } else {
+                                  setExpandedTicker(null);
+                                }
+                              } else {
+                                setExpandedTicker(entry.ticker);
+                              }
+                            }}
+                            style={{ background: expandedTicker === entry.ticker ? "rgba(61,216,224,0.06)" : undefined }}
+                          >
                             {avgScore !== null ? (
                               <ScoreGauge score={avgScore} size={48} />
                             ) : (
@@ -817,7 +892,7 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
                                 <span className="text-[8px] text-white/20 font-mono -mt-0.5">needs analysis</span>
                               </>
                             )}
-                          </div>
+                          </button>
 
                           {/* Potential — placeholder */}
                           <div className="flex flex-col items-center justify-center">
@@ -849,8 +924,83 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
                             </svg>
                           </button>
                         </div>
-                      );
+
+                        {/* Expanded financial detail — metric gauge strip */}
+                        {expandedTicker === entry.ticker && entry.analyses && entry.analyses.length > 0 && (() => {
+                          const METRICS = [
+                            { key: "revenue", label: "Revenue" },
+                            { key: "net_income", label: "Net Inc." },
+                            { key: "gross_margin", label: "Margin" },
+                            { key: "operational_costs", label: "Op. Costs" },
+                            { key: "cash_flow", label: "Cash Flow" },
+                            { key: "quarterly_growth", label: "Q Growth" },
+                            { key: "total_assets", label: "Assets" },
+                            { key: "total_debt", label: "Debt" },
+                          ] as const;
+                          const ratingToScore = (r: string): number | null => {
+                            const v = r?.toLowerCase();
+                            if (v === "excellent") return 8;
+                            if (v === "good") return 6;
+                            if (v === "neutral") return 4;
+                            if (v === "bad") return 2;
+                            if (v === "horrible") return 1;
+                            return null;
+                          };
+                          // Average each metric across all models
+                          const metricScores = METRICS.map(({ key, label }) => {
+                            const scores = entry.analyses!
+                              .map((a) => ratingToScore((a.analysis as Record<string, string>)[key] ?? ""))
+                              .filter((n): n is number => n !== null);
+                            return {
+                              label,
+                              score: scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null,
+                            };
+                          });
+                          return (
+                            <div
+                              className="flex flex-col gap-2 px-3 py-2 rounded-lg animate-fadeInUp"
+                              style={{
+                                background: "rgba(255,255,255,0.02)",
+                                border: "1px solid rgba(61,216,224,0.12)",
+                              }}
+                            >
+                              <div className="flex items-center justify-evenly">
+                                {metricScores.map(({ label, score }) => (
+                                  <div key={label} className="flex flex-col items-center gap-0.5">
+                                    {score !== null ? (
+                                      <ScoreGauge score={score} size={36} />
+                                    ) : (
+                                      <ScoreGauge empty size={36} />
+                                    )}
+                                    <span className="text-[9px] font-mono text-white whitespace-nowrap">{label}</span>
+                                  </div>
+                                ))}
+                              </div>
+                              <div className="flex items-start gap-4 mt-3">
+                                <div className="w-1/2">
+                                  <span className="text-sm font-mono uppercase tracking-wider text-[#7dd3fc] mb-1 block text-center">EXECUTIVE SUMMARY</span>
+                                  {(() => {
+                                    const summary = entry.analyses!
+                                      .map((a) => (a.analysis as Record<string, string>)?.overall_summary)
+                                      .find((s) => s);
+                                    return summary ? (
+                                      <p className="text-base text-white leading-relaxed">{summary}</p>
+                                    ) : null;
+                                  })()}
+                                </div>
+                                <div className="w-1/2">
+                                  {/* Reserved for future content */}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                        )}
+                        </SortableItem>);
                     })}
+                    </SortableContext>
+                    </DndContext>
                   </>
                 )}
                   </>
