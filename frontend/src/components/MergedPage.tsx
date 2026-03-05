@@ -347,18 +347,18 @@ export default function MergedPage({ initialMode = "home", initialTicker = "" }:
             className={`relative z-10 min-h-screen flex flex-col ${transitioning === "out" ? "animate-fadeOutUp" : ""}`}
             style={{ fontFamily: "var(--font-sans), system-ui, sans-serif", paddingTop: 80 }}
           >
-            {/* Spline 3D Visual (left 40%) — fades out with hero */}
+            {/* Hero visual (left 40%) — fades out with hero */}
+            {/* TODO: Spline 3D original (kept for reference):
             <div className={`hidden lg:block absolute left-0 top-0 w-[40%] h-full z-0 pointer-events-auto ${transitioning === "out" ? "animate-fadeOut" : ""}`}>
-              <Script
-                type="module"
-                src="https://cdn.spline.design/@splinetool/hana-viewer@1.2.44/hana-viewer.js"
-                strategy="lazyOnload"
-              />
-              <div
-                className="w-full h-full"
-                dangerouslySetInnerHTML={{
-                  __html: '<hana-viewer url="https://prod.spline.design/8Y4PK1aVoV6bpVpU-ZkQ/scene.hanacode" style="width:100%;height:100%;display:block"></hana-viewer>',
-                }}
+              <Script type="module" src="https://cdn.spline.design/@splinetool/hana-viewer@1.2.44/hana-viewer.js" strategy="lazyOnload" />
+              <div className="w-full h-full" dangerouslySetInnerHTML={{ __html: '<hana-viewer url="https://prod.spline.design/8Y4PK1aVoV6bpVpU-ZkQ/scene.hanacode" style="width:100%;height:100%;display:block"></hana-viewer>' }} />
+            </div> */}
+            <div className={`hidden lg:flex absolute left-0 top-0 w-[45%] h-full z-0 items-center justify-center ${transitioning === "out" ? "animate-fadeOut" : ""}`}>
+              <img
+                src="/hero-arrows.gif"
+                alt=""
+                className="w-[90%] max-w-[520px] object-contain select-none pointer-events-none"
+                style={{ filter: "drop-shadow(0 0 40px rgba(61, 216, 224, 0.15))", clipPath: "inset(6% 12%)", opacity: 0.9 }}
               />
             </div>
 
