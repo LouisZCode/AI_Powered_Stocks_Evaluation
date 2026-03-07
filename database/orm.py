@@ -76,7 +76,7 @@ class DocumentChunk(Base):
     id = Column(Integer, primary_key=True)
     created_at = Column(DateTime, default=func.now())
     content = Column(Text, nullable=False)
-    embedding = Column(Vector(384))
+    embedding = Column(Vector(1536))
     ticker = Column(String(10), nullable=False)
     filing_date = Column(Date)
     year = Column(Integer)
