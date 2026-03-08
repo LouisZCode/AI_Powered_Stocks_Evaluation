@@ -26,7 +26,7 @@ AVAILABLE_MODELS = {
     "grok_fast": "xai:grok-4-fast-non-reasoning",                                                                                                                                                                                                     
     "openai_fast": "openai:gpt-5-mini",                                                                                                                                                                                                                   
     "claude_fast": "anthropic:claude-3-haiku-20240307",                                                                                                                                                                                              
-    "gemini_fast": "google_genai:gemini-2.5-flash",
+    "gemini_fast": "google_genai:gemini-2.0-flash",
     "mistral_fast": "mistral-small-2506",
     "grok_deep": "xai:grok-4-fast-reasoning",                                                                                                                                                                                                     
     "openai_deep": "openai:gpt-5.1",                                                                                                                                                                                                                   
