@@ -97,32 +97,30 @@ async def evaluate_financials(
     BACKOFF_SECONDS = [2, 4]  # wait times between retries
 
     async def run_model(model_name: str):
-        # Build OpenRouter agent (primary) and direct agent (fallback)
-        openrouter_agent = None
+        # 1. Try OpenRouter first (primary path)
+        agent = None
+        provider_tag = "direct"
         if is_openrouter_available():
             try:
-                openrouter_agent = create_openrouter_financial_agent(
+                agent = create_openrouter_financial_agent(
                     model_name,
                     action_label=f"Agora | analysis | {ticker_symbol}",
                 )
+                provider_tag = "openrouter"
             except Exception as e:
-                print(f"[{model_name}] OpenRouter agent creation failed: {type(e).__name__}: {e}", flush=True)
+                print(f"[{model_name}] OpenRouter agent failed: {e}", flush=True)
 
-        try:
-            direct_agent = create_financial_agent(model_name)
-        except ValueError:
-            raise HTTPException(status_code=500, detail=f"Unknown model: {model_name}")
+        # 2. Only create direct agent if OpenRouter is not available or failed
+        if agent is None:
+            try:
+                agent = create_financial_agent(model_name)
+                provider_tag = "direct"
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"No agent for: {model_name}")
 
+        # 3. Retry loop — same agent for all attempts
         last_error = None
         for attempt in range(1, MAX_ATTEMPTS + 1):
-            # Attempts 1-2: OpenRouter (retry for speed issues); attempt 3: direct fallback
-            if attempt <= 2 and openrouter_agent is not None:
-                agent = openrouter_agent
-                provider_tag = "openrouter"
-            else:
-                agent = direct_agent
-                provider_tag = "direct"
-
             try:
                 log_llm_start(model_name, log_file, provider=provider_tag)
                 start_time = time.time()
@@ -141,10 +139,10 @@ async def evaluate_financials(
                 return model_name, response["structured_response"], usage_info, provider_tag
 
             except asyncio.TimeoutError:
-                last_error = f"Timed out after {TIMEOUT_SECONDS}s (via {provider_tag})"
+                last_error = f"Timed out after {TIMEOUT_SECONDS}s"
                 print(f"[{model_name}] attempt {attempt}: {last_error}", flush=True)
             except Exception as e:
-                last_error = f"{str(e)} (via {provider_tag})"
+                last_error = str(e)
                 print(f"[{model_name}] attempt {attempt}: {last_error}", flush=True)
 
             # If retries remain, log and wait

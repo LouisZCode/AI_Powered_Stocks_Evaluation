@@ -51,12 +51,15 @@ async def run_debate(
     position_changes = []
     all_cost_entries = []
 
-    # Create debate agents: direct (always) + OpenRouter per-metric (for label)
+    # Create debate agents: OpenRouter primary, direct only as fallback
     debate_agents = {}
     use_openrouter = is_openrouter_available()
 
     for model_name in analysis_dicts.keys():
-        debate_agents[model_name] = create_debate_agent(model_name)
+        if use_openrouter:
+            debate_agents[model_name] = None
+        else:
+            debate_agents[model_name] = create_debate_agent(model_name)
 
     for metric in metrics_to_debate:
         # Create per-metric OpenRouter agents with label
