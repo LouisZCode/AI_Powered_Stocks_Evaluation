@@ -105,8 +105,8 @@ async def evaluate_financials(
                     model_name,
                     action_label=f"Agora | analysis | {ticker_symbol}",
                 )
-            except ValueError:
-                pass
+            except Exception as e:
+                print(f"[{model_name}] OpenRouter agent creation failed: {type(e).__name__}: {e}")
 
         try:
             direct_agent = create_financial_agent(model_name)
@@ -142,8 +142,10 @@ async def evaluate_financials(
 
             except asyncio.TimeoutError:
                 last_error = f"Timed out after {TIMEOUT_SECONDS}s (via {provider_tag})"
+                print(f"[{model_name}] attempt {attempt}: {last_error}")
             except Exception as e:
                 last_error = f"{str(e)} (via {provider_tag})"
+                print(f"[{model_name}] attempt {attempt}: {last_error}")
 
             # If retries remain, log and wait
             if attempt < MAX_ATTEMPTS:
