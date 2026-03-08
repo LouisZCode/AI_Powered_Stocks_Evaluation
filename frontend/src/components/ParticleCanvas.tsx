@@ -52,8 +52,9 @@ export default function ParticleCanvas({ phase, progressBarRef, particleCount = 
     if (!ctx) return;
 
     let animId: number;
-    const COUNT = 1000;
-    const CONNECTION_DIST = 70;
+    const isMobile = window.innerWidth < 768;
+    const COUNT = isMobile ? 350 : 1000;
+    const CONNECTION_DIST = isMobile ? 50 : 70;
 
     const resize = () => {
       canvas.width = window.innerWidth;
@@ -131,8 +132,8 @@ export default function ParticleCanvas({ phase, progressBarRef, particleCount = 
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       const mouse = mouseRef.current;
 
-      // Lerp active particle count toward target
-      const target = targetCountRef.current;
+      // Lerp active particle count toward target (clamped to pool size)
+      const target = Math.min(targetCountRef.current, COUNT);
       const current = activeCountRef.current;
       activeCountRef.current = current + (target - current) * 0.05;
       const drawCount = Math.min(Math.round(activeCountRef.current), particles.length);
@@ -159,19 +160,23 @@ export default function ParticleCanvas({ phase, progressBarRef, particleCount = 
         if (p.y > canvas.height + 10) p.y = -10;
         if (p.y < -10) p.y = canvas.height + 10;
 
-        // Draw trail
-        const gradient = ctx.createLinearGradient(
-          p.x - p.vx * 8, p.y, p.x, p.y
-        );
+        // Draw trail (skip gradient on mobile — use simple line instead)
         const color = isAnalyzing
           ? `rgba(251, 191, 36, ${0.6 * (p.size / 2.5)})`
           : `rgba(125, 211, 252, ${0.6 * (p.size / 2.5)})`;
-        gradient.addColorStop(0, "transparent");
-        gradient.addColorStop(1, color);
         ctx.beginPath();
         ctx.moveTo(p.x - p.vx * 8, p.y);
         ctx.lineTo(p.x, p.y);
-        ctx.strokeStyle = gradient;
+        if (isMobile) {
+          ctx.strokeStyle = color;
+        } else {
+          const gradient = ctx.createLinearGradient(
+            p.x - p.vx * 8, p.y, p.x, p.y
+          );
+          gradient.addColorStop(0, "transparent");
+          gradient.addColorStop(1, color);
+          ctx.strokeStyle = gradient;
+        }
         ctx.lineWidth = p.size;
         ctx.stroke();
 
