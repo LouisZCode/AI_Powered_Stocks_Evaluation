@@ -19,7 +19,7 @@ OPENROUTER_AVAILABLE_MODELS = {
     "grok_fast":    "x-ai/grok-4.1-fast",
     "openai_fast":  "openai/gpt-5-mini",
     "claude_fast":  "anthropic/claude-3-haiku",
-    "gemini_fast":  "google/gemini-2.0-flash-001",
+
     "mistral_fast": "mistralai/mistral-small-3.2-24b-instruct-2506",
     "grok_deep":    "x-ai/grok-4",
     "openai_deep":  "openai/gpt-5.1",
