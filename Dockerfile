@@ -24,7 +24,7 @@ ENV PYTHONUNBUFFERED=1
 
 COPY . .
 
-RUN mkdir -p logs/conversations && chown -R appuser:appuser logs
+RUN mkdir -p logs/conversations reports/generated && chown -R appuser:appuser logs reports
 
 USER appuser
 EXPOSE 8000
