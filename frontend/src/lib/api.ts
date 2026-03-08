@@ -225,6 +225,46 @@ export async function searchAnalyzedTickers(query: string): Promise<string[]> {
   return data.tickers;
 }
 
+// ── Payments ──
+
+export async function createCheckoutSession(
+  params: { tier?: string; topup_tokens?: number }
+): Promise<{ checkout_url: string }> {
+  const res = await fetch(`${API}/payments/checkout`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+    credentials: "include",
+  });
+  if (!res.ok) {
+    if (res.status === 401) throw new Error("__NOT_AUTHENTICATED__");
+    let detail = "Checkout failed";
+    try {
+      const body = await res.json();
+      if (body.detail) detail = body.detail;
+    } catch {}
+    throw new Error(detail);
+  }
+  return res.json();
+}
+
+export async function createPortalSession(): Promise<{ portal_url: string }> {
+  const res = await fetch(`${API}/payments/portal`, {
+    method: "POST",
+    credentials: "include",
+  });
+  if (!res.ok) {
+    if (res.status === 401) throw new Error("__NOT_AUTHENTICATED__");
+    let detail = "Portal session failed";
+    try {
+      const body = await res.json();
+      if (body.detail) detail = body.detail;
+    } catch {}
+    throw new Error(detail);
+  }
+  return res.json();
+}
+
 // ── Report ──
 
 export async function generateReport(

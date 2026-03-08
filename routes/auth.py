@@ -274,5 +274,6 @@ async def get_me(user = Depends(get_current_user), db: AsyncSession = Depends(ge
         "name" : user.name,
         "email" : user.email,
         "tier" : user.tier,
-        "token_balance" : user.token_balance
+        "token_balance" : user.token_balance,
+        "has_subscription" : user.stripe_subscription_id is not None,
     }

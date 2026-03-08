@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import Nav from "@/components/Nav";
 import AuthModal from "@/components/AuthModal";
 import { useAuth } from "@/hooks/useAuth";
 import { TIERS, TOKEN_COSTS, RUN_EXAMPLES, FAQ_ITEMS } from "@/lib/pricing";
+import { createCheckoutSession, createPortalSession } from "@/lib/api";
 
 /* ─── Simplified idle-only particle background ─── */
 function PricingParticles() {
@@ -168,9 +170,76 @@ function FaqAccordion({ question, answer }: { question: string; answer: string }
 }
 
 /* ─── Main Pricing Page ─── */
-export default function PricingPage() {
-  const { user } = useAuth();
+const TIER_ORDER = ["free", "hobbyist", "investor", "trader", "enterprise"];
+
+function PricingPageInner() {
+  const { user, refreshUser } = useAuth();
   const [authModal, setAuthModal] = useState(false);
+  const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
+  const [topupQty, setTopupQty] = useState(50);
+  const [toast, setToast] = useState<{ message: string; type: "success" | "neutral" } | null>(null);
+  const searchParams = useSearchParams();
+
+  // Handle ?success=true and ?cancelled=true
+  useEffect(() => {
+    if (searchParams.get("success") === "true") {
+      setToast({ message: "Payment successful! Your account has been updated.", type: "success" });
+      refreshUser();
+      window.history.replaceState({}, "", "/pricing");
+    } else if (searchParams.get("cancelled") === "true") {
+      setToast({ message: "Payment cancelled. No charges were made.", type: "neutral" });
+      window.history.replaceState({}, "", "/pricing");
+    }
+  }, [searchParams, refreshUser]);
+
+  // Auto-dismiss toast
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 5000);
+    return () => clearTimeout(t);
+  }, [toast]);
+
+  const handleSubscribe = async (tier: string) => {
+    if (!user) { setAuthModal(true); return; }
+    setCheckoutLoading(tier);
+    try {
+      const { checkout_url } = await createCheckoutSession({ tier });
+      window.location.href = checkout_url;
+    } catch {
+      setToast({ message: "Failed to start checkout. Please try again.", type: "neutral" });
+      setCheckoutLoading(null);
+    }
+  };
+
+  const handleTopup = async () => {
+    if (!user) { setAuthModal(true); return; }
+    setCheckoutLoading("topup");
+    try {
+      const { checkout_url } = await createCheckoutSession({ topup_tokens: topupQty });
+      window.location.href = checkout_url;
+    } catch {
+      setToast({ message: "Failed to start checkout. Please try again.", type: "neutral" });
+      setCheckoutLoading(null);
+    }
+  };
+
+  const handleManageSubscription = async () => {
+    try {
+      const { portal_url } = await createPortalSession();
+      window.location.href = portal_url;
+    } catch {
+      setToast({ message: "Failed to open billing portal.", type: "neutral" });
+    }
+  };
+
+  const getButtonLabel = (tierId: string) => {
+    if (!user) return "Subscribe";
+    const currentIdx = TIER_ORDER.indexOf(user.tier);
+    const targetIdx = TIER_ORDER.indexOf(tierId);
+    if (targetIdx > currentIdx) return "Upgrade";
+    if (targetIdx < currentIdx) return "Downgrade";
+    return "Current Plan";
+  };
 
   const scrollToTiers = useCallback(() => {
     document.getElementById("tiers")?.scrollIntoView({ behavior: "smooth" });
@@ -262,13 +331,24 @@ export default function PricingPage() {
                 </ul>
 
                 {isCurrent ? (
-                  <button
-                    disabled
-                    className="w-full rounded-xl font-[500] cursor-default"
-                    style={{ padding: "11px 0", fontSize: 14, color: "#3dd8e0", border: "1px solid rgba(61, 216, 224, 0.3)", background: "transparent" }}
-                  >
-                    Current Plan
-                  </button>
+                  <>
+                    <button
+                      disabled
+                      className="w-full rounded-xl font-[500] cursor-default"
+                      style={{ padding: "11px 0", fontSize: 14, color: "#3dd8e0", border: "1px solid rgba(61, 216, 224, 0.3)", background: "transparent" }}
+                    >
+                      Current Plan
+                    </button>
+                    {user?.has_subscription && tier.id !== "free" && (
+                      <button
+                        onClick={handleManageSubscription}
+                        className="w-full rounded-xl font-[500] text-white/50 mt-2 transition-opacity hover:opacity-85 cursor-pointer"
+                        style={{ padding: "8px 0", fontSize: 12, border: "1px solid rgba(255,255,255,0.08)", background: "transparent" }}
+                      >
+                        Manage Subscription
+                      </button>
+                    )}
+                  </>
                 ) : tier.id === "free" && !user ? (
                   <button
                     onClick={() => setAuthModal(true)}
@@ -277,13 +357,22 @@ export default function PricingPage() {
                   >
                     Get Started
                   </button>
-                ) : (
+                ) : tier.id === "free" ? (
                   <button
                     disabled
                     className="w-full rounded-xl font-[500] text-white/30 cursor-default"
                     style={{ padding: "11px 0", fontSize: 14, border: "1px solid rgba(255,255,255,0.06)", background: "transparent" }}
                   >
-                    Coming Soon
+                    Free Tier
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleSubscribe(tier.id)}
+                    disabled={checkoutLoading === tier.id}
+                    className="w-full rounded-xl font-[500] transition-opacity hover:opacity-85 cursor-pointer disabled:opacity-50 disabled:cursor-wait"
+                    style={{ padding: "11px 0", fontSize: 14, color: "#0a0e14", background: "#3dd8e0", border: "none" }}
+                  >
+                    {checkoutLoading === tier.id ? "Redirecting..." : getButtonLabel(tier.id)}
                   </button>
                 )}
               </div>
@@ -369,12 +458,27 @@ export default function PricingPage() {
                 </li>
               ))}
             </ul>
+            <div className="flex items-center gap-3 mb-3">
+              <select
+                value={topupQty}
+                onChange={(e) => setTopupQty(Number(e.target.value))}
+                className="flex-1 rounded-lg px-3 py-2 text-white/90 font-mono cursor-pointer"
+                style={{ fontSize: 13, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)" }}
+              >
+                {[10, 20, 50, 100, 200, 500].map((n) => (
+                  <option key={n} value={n} style={{ background: "#0a0e14" }}>
+                    {n} tokens — ${n / 10}
+                  </option>
+                ))}
+              </select>
+            </div>
             <button
-              disabled
-              className="w-full rounded-xl font-[500] text-white/30 cursor-default"
-              style={{ padding: "11px 0", fontSize: 14, border: "1px solid rgba(255,255,255,0.06)", background: "transparent" }}
+              onClick={handleTopup}
+              disabled={checkoutLoading === "topup"}
+              className="w-full rounded-xl font-[500] transition-opacity hover:opacity-85 cursor-pointer disabled:opacity-50 disabled:cursor-wait"
+              style={{ padding: "11px 0", fontSize: 14, color: "#0a0e14", background: "#3dd8e0", border: "none" }}
             >
-              Coming Soon
+              {checkoutLoading === "topup" ? "Redirecting..." : "Buy Tokens"}
             </button>
           </div>
         </section>
@@ -481,6 +585,30 @@ export default function PricingPage() {
         onClose={() => setAuthModal(false)}
         mode="signup"
       />
+
+      {/* Toast */}
+      {toast && (
+        <div
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 rounded-xl px-5 py-3 animate-fadeIn"
+          style={{
+            background: toast.type === "success" ? "rgba(52, 211, 153, 0.15)" : "rgba(255,255,255,0.08)",
+            border: `1px solid ${toast.type === "success" ? "rgba(52, 211, 153, 0.3)" : "rgba(255,255,255,0.1)"}`,
+            backdropFilter: "blur(12px)",
+          }}
+        >
+          <p className={toast.type === "success" ? "text-emerald-300" : "text-white/70"} style={{ fontSize: 14 }}>
+            {toast.message}
+          </p>
+        </div>
+      )}
     </div>
+  );
+}
+
+export default function PricingPage() {
+  return (
+    <Suspense>
+      <PricingPageInner />
+    </Suspense>
   );
 }

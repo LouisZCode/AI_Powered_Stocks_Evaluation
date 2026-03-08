@@ -9,6 +9,7 @@ interface User {
   email: string;
   tier: string;
   token_balance: number;
+  has_subscription: boolean;
 }
 
 interface AuthState {

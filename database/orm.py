@@ -22,6 +22,8 @@ class User(Base):
     token_balance = Column(Integer, nullable=False, server_default="70", default=70)
     creation_date = Column(DateTime, default=func.now())
     update_tier_date = Column(Date, default=func.now())
+    stripe_customer_id = Column(String(255), nullable=True, unique=True)
+    stripe_subscription_id = Column(String(255), nullable=True)
 
     activities = relationship("Activity", back_populates="user")
     oauth_accounts = relationship("OauthProvider", back_populates="user", cascade="all, delete-orphan")
