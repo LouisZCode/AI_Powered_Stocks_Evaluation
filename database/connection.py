@@ -3,6 +3,10 @@ import psycopg2
 from config import DB_URL
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 
+# Normalize postgres:// → postgresql:// (Railway pgvector uses the short form)
+if DB_URL and DB_URL.startswith("postgres://"):
+    DB_URL = DB_URL.replace("postgres://", "postgresql://", 1)
+
 # Async engine for SQLAlchemy (used by FastAPI routes)
 _async_url = DB_URL
 if _async_url and _async_url.startswith("postgresql://"):

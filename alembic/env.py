@@ -12,9 +12,14 @@ from config import DB_URL
 # access to the values within the .ini file in use.
 config = context.config
 
+# Normalize postgres:// → postgresql:// (Railway pgvector uses the short form)
+_db_url = DB_URL
+if _db_url and _db_url.startswith("postgres://"):
+    _db_url = _db_url.replace("postgres://", "postgresql://", 1)
+
 # Set the DB URL from environment (instead of hardcoding in alembic.ini)
-if DB_URL:
-    config.set_main_option("sqlalchemy.url", DB_URL)
+if _db_url:
+    config.set_main_option("sqlalchemy.url", _db_url)
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.

@@ -12,6 +12,8 @@ DESIGN_SPECS.md
 ARCHITECTURE.md
 reports/generated/
 COSTS.md
+DEPLOYMENT.md
+PORKBUN.md
 
 # Logs
 *.log
