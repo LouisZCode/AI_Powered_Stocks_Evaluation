@@ -323,7 +323,8 @@ async def _invoke_agent(
         try:
             response = await asyncio.wait_for(
                 current_agent.ainvoke(
-                    {"messages": [{"role": "user", "content": prompt}]}
+                    {"messages": [{"role": "user", "content": prompt}]},
+                    {"recursion_limit": 12},
                 ),
                 timeout=AGENT_TIMEOUT,
             )

@@ -125,7 +125,10 @@ async def evaluate_financials(
                 log_llm_start(model_name, log_file, provider=provider_tag)
                 start_time = time.time()
                 response = await asyncio.wait_for(
-                    agent.ainvoke({"messages": {"role": "user", "content": user_message}}),
+                    agent.ainvoke(
+                        {"messages": {"role": "user", "content": user_message}},
+                        {"recursion_limit": 12},
+                    ),
                     timeout=TIMEOUT_SECONDS,
                 )
                 elapsed = time.time() - start_time
