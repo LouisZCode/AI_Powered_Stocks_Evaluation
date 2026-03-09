@@ -227,6 +227,12 @@ export async function searchAnalyzedTickers(query: string): Promise<string[]> {
 
 // ── Waitlist ──
 
+export async function checkFeatureWaitlist(): Promise<{ on_waitlist: boolean }> {
+  const res = await fetch(`${API}/watchlist/waitlist`, { credentials: "include" });
+  if (!res.ok) return { on_waitlist: false };
+  return res.json();
+}
+
 export async function joinFeatureWaitlist(): Promise<{ message: string }> {
   const res = await fetch(`${API}/watchlist/waitlist`, {
     method: "POST",

@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useAnalysis } from "@/hooks/useAnalysis";
 import { useAuth } from "@/hooks/useAuth";
-import { generateReport, deductTokens, deductDebateTokens, addToWatchlist, getWatchlist, removeFromWatchlist, searchAnalyzedTickers, reorderWatchlist, joinFeatureWaitlist } from "@/lib/api";
+import { generateReport, deductTokens, deductDebateTokens, addToWatchlist, getWatchlist, removeFromWatchlist, searchAnalyzedTickers, reorderWatchlist, joinFeatureWaitlist, checkFeatureWaitlist } from "@/lib/api";
 import type { WatchlistEntry } from "@/lib/api";
 import ScoreGauge from "@/components/ScoreGauge";
 import ParticleCanvas from "@/components/ParticleCanvas";
@@ -71,16 +71,21 @@ function SortableItem({ id, children }: { id: string; children: (props: { listen
 
 /* ── Coming Soon placeholder for locked tabs ── */
 function ComingSoonTab({ icon, title, desc, isLoggedIn }: { icon: string; title: string; desc: string; isLoggedIn: boolean }) {
-  const [notifyChoice, setNotifyChoice] = useState<"yes" | "no" | null>(null);
+  const [onWaitlist, setOnWaitlist] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    checkFeatureWaitlist().then((r) => setOnWaitlist(r.on_waitlist));
+  }, [isLoggedIn]);
 
   const handleNotify = async () => {
     setLoading(true);
     try {
       await joinFeatureWaitlist();
-      setNotifyChoice("yes");
+      setOnWaitlist(true);
     } catch {
-      setNotifyChoice("yes");
+      setOnWaitlist(true);
     } finally {
       setLoading(false);
     }
@@ -103,41 +108,23 @@ function ComingSoonTab({ icon, title, desc, isLoggedIn }: { icon: string; title:
           <p className="text-sm font-mono text-white/30">
             Please log in to see more information.
           </p>
-        ) : notifyChoice === null ? (
-          <>
-            <p className="text-sm font-mono text-white/40 text-center">
-              Want to be notified when this feature launches?
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={handleNotify}
-                disabled={loading}
-                className="px-5 py-2 rounded-lg text-sm font-mono font-medium transition-colors cursor-pointer disabled:opacity-50"
-                style={{ background: "rgba(61,216,224,0.12)", border: "1px solid rgba(61,216,224,0.25)", color: "#3dd8e0" }}
-              >
-                {loading ? "Joining..." : "Yes, notify me"}
-              </button>
-              <button
-                onClick={() => setNotifyChoice("no")}
-                className="px-5 py-2 rounded-lg text-sm font-mono text-white/30 transition-colors cursor-pointer hover:text-white/50"
-                style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
-              >
-                No thanks
-              </button>
-            </div>
-          </>
-        ) : notifyChoice === "yes" ? (
+        ) : onWaitlist ? (
           <p className="text-sm font-mono text-[#3dd8e0]/70 flex items-center gap-2">
             <svg width={16} height={16} fill="none" viewBox="0 0 24 24">
               <path d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-            We&apos;ll let you know when it&apos;s ready!
+            You&apos;re on the waitlist — we&apos;ll let you know once this feature launches!
           </p>
-        ) : (
-          <p className="text-sm font-mono text-white/25">
-            No worries — check back soon!
-          </p>
-        )}
+        ) : onWaitlist === false ? (
+          <button
+            onClick={handleNotify}
+            disabled={loading}
+            className="px-5 py-2 rounded-lg text-sm font-mono font-medium transition-colors cursor-pointer disabled:opacity-50"
+            style={{ background: "rgba(61,216,224,0.12)", border: "1px solid rgba(61,216,224,0.25)", color: "#3dd8e0" }}
+          >
+            {loading ? "Joining..." : "Notify me when this launches"}
+          </button>
+        ) : null}
       </div>
     </div>
   );

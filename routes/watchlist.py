@@ -108,6 +108,20 @@ async def reorder_watchlist(
     return {"message": "Watchlist reordered"}
 
 
+@router.get("/waitlist")
+async def check_waitlist(
+    user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    existing = await db.execute(
+        select(FeatureWaitlist).where(FeatureWaitlist.user_id == user.id)
+    )
+    return {"on_waitlist": existing.scalar_one_or_none() is not None}
+
+
 @router.post("/waitlist")
 async def join_waitlist(
     user=Depends(get_current_user),
