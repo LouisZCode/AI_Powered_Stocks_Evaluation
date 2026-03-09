@@ -72,6 +72,16 @@ class Watchlist(Base):
     user = relationship("User", back_populates="watchlist_items")
 
 
+class FeatureWaitlist(Base):
+    __tablename__ = "feature_waitlist"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=False, unique=True)
+    created_at = Column(DateTime, default=func.now())
+
+    user = relationship("User")
+
+
 class DocumentChunk(Base):
     __tablename__ = 'chunks'
 

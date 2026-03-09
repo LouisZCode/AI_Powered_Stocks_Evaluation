@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete, func, update
 
 from database.connection import get_db
-from database.orm import Watchlist, LLMFinancialAnalysis
+from database.orm import Watchlist, LLMFinancialAnalysis, FeatureWaitlist
 from dependencies.oauth import get_current_user
 
 router = APIRouter(prefix="/watchlist")
@@ -106,6 +106,25 @@ async def reorder_watchlist(
         )
     await db.commit()
     return {"message": "Watchlist reordered"}
+
+
+@router.post("/waitlist")
+async def join_waitlist(
+    user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    existing = await db.execute(
+        select(FeatureWaitlist).where(FeatureWaitlist.user_id == user.id)
+    )
+    if existing.scalar_one_or_none():
+        return {"message": "Already on the waitlist"}
+
+    db.add(FeatureWaitlist(user_id=user.id))
+    await db.commit()
+    return {"message": "Added to waitlist"}
 
 
 @router.get("/search")

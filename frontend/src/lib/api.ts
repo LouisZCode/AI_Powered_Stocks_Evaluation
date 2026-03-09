@@ -225,6 +225,17 @@ export async function searchAnalyzedTickers(query: string): Promise<string[]> {
   return data.tickers;
 }
 
+// ── Waitlist ──
+
+export async function joinFeatureWaitlist(): Promise<{ message: string }> {
+  const res = await fetch(`${API}/watchlist/waitlist`, {
+    method: "POST",
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error("Failed to join waitlist");
+  return res.json();
+}
+
 // ── Payments ──
 
 export async function createCheckoutSession(

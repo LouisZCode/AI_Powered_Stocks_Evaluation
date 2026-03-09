@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useAnalysis } from "@/hooks/useAnalysis";
 import { useAuth } from "@/hooks/useAuth";
-import { generateReport, deductTokens, deductDebateTokens, addToWatchlist, getWatchlist, removeFromWatchlist, searchAnalyzedTickers, reorderWatchlist } from "@/lib/api";
+import { generateReport, deductTokens, deductDebateTokens, addToWatchlist, getWatchlist, removeFromWatchlist, searchAnalyzedTickers, reorderWatchlist, joinFeatureWaitlist } from "@/lib/api";
 import type { WatchlistEntry } from "@/lib/api";
 import ScoreGauge from "@/components/ScoreGauge";
 import ParticleCanvas from "@/components/ParticleCanvas";
@@ -72,6 +72,19 @@ function SortableItem({ id, children }: { id: string; children: (props: { listen
 /* ── Coming Soon placeholder for locked tabs ── */
 function ComingSoonTab({ icon, title, desc, isLoggedIn }: { icon: string; title: string; desc: string; isLoggedIn: boolean }) {
   const [notifyChoice, setNotifyChoice] = useState<"yes" | "no" | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleNotify = async () => {
+    setLoading(true);
+    try {
+      await joinFeatureWaitlist();
+      setNotifyChoice("yes");
+    } catch {
+      setNotifyChoice("yes");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="flex flex-col items-center justify-center py-16 gap-4">
@@ -97,11 +110,12 @@ function ComingSoonTab({ icon, title, desc, isLoggedIn }: { icon: string; title:
             </p>
             <div className="flex gap-3">
               <button
-                onClick={() => setNotifyChoice("yes")}
-                className="px-5 py-2 rounded-lg text-sm font-mono font-medium transition-colors cursor-pointer"
+                onClick={handleNotify}
+                disabled={loading}
+                className="px-5 py-2 rounded-lg text-sm font-mono font-medium transition-colors cursor-pointer disabled:opacity-50"
                 style={{ background: "rgba(61,216,224,0.12)", border: "1px solid rgba(61,216,224,0.25)", color: "#3dd8e0" }}
               >
-                Yes, notify me
+                {loading ? "Joining..." : "Yes, notify me"}
               </button>
               <button
                 onClick={() => setNotifyChoice("no")}
