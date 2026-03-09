@@ -40,8 +40,9 @@ The app runs as three services on Railway:
 | Backend | FastAPI, Python 3.12, SQLAlchemy, Alembic |
 | Database | PostgreSQL + pgvector (asyncpg) |
 | Auth | GitHub OAuth + Google OAuth + JWT (HTTP-only cookies) |
-| AI | OpenRouter (Grok, OpenAI, Claude, Gemini, Mistral) via LangChain |
-| Embeddings | HuggingFace all-MiniLM-L6-v2 |
+| AI Orchestration | LangChain agents with tool use (RAG retrieval, debate, compression) |
+| LLM Providers | OpenRouter gateway — Grok, OpenAI, Claude, Gemini, Mistral |
+| Embeddings | OpenAI + HuggingFace all-MiniLM-L6-v2 |
 | Payments | Stripe |
 | Deployment | Railway (Docker) |
 
