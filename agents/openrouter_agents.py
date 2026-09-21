@@ -16,12 +16,12 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
 OPENROUTER_AVAILABLE_MODELS = {
-    "grok_fast":    "x-ai/grok-4.1-fast",
+    "grok_fast":    "x-ai/grok-4.3",
     "openai_fast":  "openai/gpt-5-mini",
     "claude_fast":  "anthropic/claude-3-haiku",
 
     "mistral_fast": "mistralai/mistral-small-3.2-24b-instruct-2506",
-    "grok_deep":    "x-ai/grok-4",
+    "grok_deep":    "x-ai/grok-4.3",
     "openai_deep":  "openai/gpt-5.1",
     "claude_deep":  "anthropic/claude-sonnet-4-6",
     "gemini_deep":  "google/gemini-2.5-pro",
@@ -48,6 +48,7 @@ def _build_openrouter_model(model_key: str, action_label: str = "Agora") -> Chat
         api_key=OPENROUTER_API_KEY,
         model=OPENROUTER_AVAILABLE_MODELS[model_key],
         default_headers={"HTTP-Referer": action_label},
+        extra_body={"usage": {"include": True}},
     )
 
 
@@ -79,4 +80,5 @@ def create_openrouter_summary_model(action_label: str = "Agora | summary"):
         api_key=OPENROUTER_API_KEY,
         model=OPENROUTER_AVAILABLE_MODELS["mistral_fast"],
         default_headers={"HTTP-Referer": action_label},
+        extra_body={"usage": {"include": True}},
     )
